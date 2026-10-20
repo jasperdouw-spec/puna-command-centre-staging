@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
 import {spawn,execFileSync} from 'node:child_process';
 import {randomBytes,scryptSync,createHash} from 'node:crypto';
 import https from 'node:https';
@@ -129,6 +129,22 @@ try{
  await check('mobile editor remains usable without horizontal overflow',async()=>{
   await page.setViewportSize({width:390,height:844});await page.reload();await page.getByRole('button',{name:'Save product',exact:true}).first().waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));assert.ok(await page.getByLabel('Name',{exact:true}).first().isVisible());
+ });
+ await check('capture six synthetic desktop/mobile review screenshots',async()=>{
+  mkdirSync('test-artifacts/screenshots',{recursive:true});
+  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
+   await page.setViewportSize({width,height});
+   await page.getByRole('button',{name:'Puna Home',exact:true}).click();
+   await page.getByRole('img',{name:'Puna official logo'}).evaluate(im=>im.decode());
+   await page.screenshot({path:'test-artifacts/screenshots/'+device+'-home.png',fullPage:true});
+   await page.getByRole('button',{name:'Website',exact:true}).click();
+   await page.getByRole('button',{name:'Products',exact:true}).click();
+   await page.screenshot({path:'test-artifacts/screenshots/'+device+'-products.png',fullPage:true});
+   await page.getByRole('button',{name:'Edit',exact:true}).click();
+   await page.getByLabel('Name',{exact:true}).first().waitFor();
+   await page.screenshot({path:'test-artifacts/screenshots/'+device+'-edit.png',fullPage:true});
+  }
+  writeFileSync('test-artifacts/screenshots/commit.txt',process.env.GITHUB_SHA+'\n');
  });
  await check('browser orbital home and logout work',async()=>{
   await page.getByRole('button',{name:'Puna Home',exact:true}).click();await page.getByRole('img',{name:'Puna official logo'}).waitFor();
