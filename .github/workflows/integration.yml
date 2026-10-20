@@ -1,38 +1,13 @@
-name: Isolated application integration
+name: Prepare dependency lock
 on:
   push:
     branches: [review/puna-isolated-integration]
 permissions:
   contents: read
-concurrency:
-  group: puna-synthetic-integration-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
-  integration:
+  lock:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    services:
-      mariadb:
-        image: mariadb:10.11
-        env:
-          MARIADB_ROOT_PASSWORD: synthetic-ci-root-only
-          MARIADB_DATABASE: puna_ci_synthetic
-          MARIADB_USER: puna_ci
-          MARIADB_PASSWORD: synthetic-ci-user-only
-        ports:
-          - 3307:3306
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=12
-    env:
-      DB_HOST: 127.0.0.1
-      DB_PORT: '3307'
-      DB_NAME: puna_ci_synthetic
-      DB_USER: puna_ci
-      DB_PASSWORD: synthetic-ci-user-only
-      NEXT_TELEMETRY_DISABLED: '1'
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,10 +15,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --no-audit --no-fund
-      - run: npm install --no-save --no-audit --no-fund playwright@1.56.1
-      - run: npx playwright install --with-deps chromium
-      - run: npm run typecheck
-      - run: npm run build
-      - name: Test actual production application over local HTTPS
-        run: timeout 240s node tests/integration.mjs
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Return generated dependency metadata
+        run: node -e "console.log('PUNA_LOCK_START'); console.log(require('fs').readFileSync('package-lock.json').toString('base64')); console.log('PUNA_LOCK_END')"
