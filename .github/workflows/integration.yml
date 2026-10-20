@@ -49,6 +49,7 @@ jobs:
       - name: Reproduce failure from the exact received source archive
         env:
           NODE_ENV: production
+          NEXT_TEST_WASM: '1'
         run: |
           mkdir -p test-artifacts/build-evidence
           curl --fail --silent --show-error --location --max-time 60 \
@@ -59,11 +60,8 @@ jobs:
           cd "$RUNNER_TEMP/puna-baseline"
           npm install --no-audit --no-fund
           node -e 'for(const p of ["typescript","@tailwindcss/postcss","tailwindcss","tw-animate-css"]){try{require.resolve(p);throw new Error(p+" unexpectedly installed")}catch(e){if(e.code!=="MODULE_NOT_FOUND")throw e;console.log("CONFIRMED OMITTED "+p)}}'
-          # Reproduce Hostinger's WASM fallback without requiring its old libc.
-          mkdir -p "$RUNNER_TEMP/baseline-native-swc"
-          for p in node_modules/@next/swc-linux-x64-*; do
-            if [ -d "$p" ]; then mv "$p" "$RUNNER_TEMP/baseline-native-swc/"; fi
-          done
+          # Next's own test flag selects Hostinger's observed WASM compiler path.
+          node -e 'require("next/dist/build/swc").loadBindings().then(b=>{require("node:assert/strict").equal(b.isWasm,true);console.log("VERIFIED WASM compiler")})'
           set +e
           timeout 180s npm run build > "$GITHUB_WORKSPACE/test-artifacts/build-evidence/baseline-build.log" 2>&1
           result=$?
@@ -84,15 +82,13 @@ jobs:
           npm ci --no-audit --no-fund
           node -e 'for(const p of ["typescript","@tailwindcss/postcss","tailwindcss","tw-animate-css","playwright"]){const m=JSON.parse(require("node:fs").readFileSync("node_modules/"+p+"/package.json","utf8"));console.log("INSTALLED "+p+" "+m.version)}'
           npx playwright install --with-deps chromium
-          mkdir -p "$RUNNER_TEMP/candidate-native-swc"
-          for p in node_modules/@next/swc-linux-x64-*; do
-            if [ -d "$p" ]; then mv "$p" "$RUNNER_TEMP/candidate-native-swc/"; fi
-          done
       - name: Typecheck and build the freshly extracted candidate
         env:
           NODE_ENV: production
+          NEXT_TEST_WASM: '1'
         run: |
           cd "$RUNNER_TEMP/puna-candidate"
+          node -e 'require("next/dist/build/swc").loadBindings().then(b=>{require("node:assert/strict").equal(b.isWasm,true);console.log("VERIFIED WASM compiler")})'
           npm run typecheck
           npm run build
           cp -R public .next/standalone/public
