@@ -5,11 +5,11 @@ import {z} from 'zod';
 export const runtime='nodejs';
 const product=z.object({id:z.string().min(1).max(64),version:z.number().int().positive(),name:z.string().trim().min(1).max(120),description:z.string().max(10000),price_cents:z.number().int().min(0).max(100000),available:z.boolean(),confirm:z.boolean().default(false)}).strict();
 function failure(e:unknown){const m=(e as Error).message;return NextResponse.json({error:m==='UNAUTHENTICATED'?'Sign in required':m==='FORBIDDEN'?'Access denied':'Service unavailable'},{status:m==='UNAUTHENTICATED'?401:m==='FORBIDDEN'?403:503})}
-export async function GET(){try{await requireRole(['owner','manager']);const [rows]=await database().execute('SELECT id,name,description,price_cents,kind,available,source_status,updated_at,version FROM products ORDER BY kind,name');return NextResponse.json({products:rows},{headers:{'Cache-Control':'no-store'}})}catch(e){return failure(e)}}
+export async function GET(){try{await requireRole(['owner']);const [rows]=await database().execute('SELECT id,name,description,price_cents,kind,available,source_status,updated_at,version FROM products ORDER BY kind,name');return NextResponse.json({products:rows},{headers:{'Cache-Control':'no-store'}})}catch(e){return failure(e)}}
 export async function PATCH(req:Request){
  if(!checkOrigin(req))return NextResponse.json({error:'Invalid origin'},{status:403});
  try{
-  const user=await requireRole(['owner','manager']);
+  const user=await requireRole(['owner']);
   let body:unknown;try{body=await req.json()}catch{return NextResponse.json({error:'Invalid JSON'},{status:400})}
   const parsed=product.safeParse(body);if(!parsed.success)return NextResponse.json({error:'Invalid product fields'},{status:400});
   const p=parsed.data,conn=await database().getConnection();
@@ -22,3 +22,4 @@ export async function PATCH(req:Request){
   }catch(e){await conn.rollback();throw e}finally{conn.release()}
  }catch(e){return failure(e)}
 }
+

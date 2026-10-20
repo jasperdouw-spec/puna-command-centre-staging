@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
 import {spawn,execFileSync} from 'node:child_process';
-import {randomBytes,scryptSync,createHash} from 'node:crypto';
+import {randomBytes,randomUUID,scryptSync,createHash} from 'node:crypto';
 import https from 'node:https';
 import http from 'node:http';
 import mysql from 'mysql2/promise';
@@ -12,6 +12,7 @@ assert.equal(process.env.DB_HOST,'127.0.0.1');
 assert.equal(process.env.DB_NAME,'puna_ci_synthetic');
 assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 const db=await mysql.createConnection({host:'127.0.0.1',port:Number(process.env.DB_PORT),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME,multipleStatements:true});
+for(const [file,expected] of Object.entries(JSON.parse(readFileSync('tests/preserved-assets.json','utf8'))))assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),expected,'Preserved public asset '+file);
 const origin='https://localhost:3443';
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{await fn();passed++;console.log('PASS '+name)};
@@ -33,10 +34,10 @@ let cookie;
 const product=async()=>{const r=await request('/api/products',{cookie});assert.equal(r.status,200);return r.data.products[0]};
 const patch=(p,extra={},options={})=>request('/api/products',{method:'PATCH',cookie,body:{id:p.id,version:p.version,name:p.name,description:p.description,price_cents:p.price_cents,available:!!p.available,...extra},...options});
 try{
- for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql'])await db.query(readFileSync('db/'+file,'utf8'));
+ for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql','005_unified_staging.sql'])await db.query(readFileSync('db/'+file,'utf8'));
  await db.execute("INSERT INTO products(id,name,description,price_cents,kind) VALUES(?,?,?,?,?)",['synthetic-product','Synthetic product','Disposable integration fixture',1234,'fresh']);
  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout','/tmp/puna-ci-key.pem','-out','/tmp/puna-ci-cert.pem','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost'],{stdio:'ignore'});
- app=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'],{env:{...process.env,BOOTSTRAP_TOKEN:token,NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
+ app=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'],{env:{...process.env,BOOTSTRAP_TOKEN:token,STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
  // Only application diagnostics, never request bodies, session tokens or database rows.
  app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));
  proxy=https.createServer({key:readFileSync('/tmp/puna-ci-key.pem'),cert:readFileSync('/tmp/puna-ci-cert.pem')},(req,res)=>{
@@ -112,6 +113,84 @@ try{
  await check('logout revokes session and replay is denied',async()=>{
   const old=cookie;assert.equal((await auth({action:'logout'},{cookie})).status,200);assert.equal((await request('/api/products',{cookie:old})).status,401);cookie=await login();
  });
+
+ let staffCookie=await login('staff@example.test'),secondCookie,testOrderId;
+ const submitOrder=(body,extra={})=>request('/api/puna',{method:'POST',body,cookie,...extra});
+ const orderBody=()=>({action:'order',id:randomUUID(),customer:'Synthetic pickup',slot:'12:00–12:30',items:[{id:'synthetic-product',quantity:2}]});
+ await check('public and dashboard share one catalogue without private fields',async()=>{
+  const r=await request('/api/puna');assert.equal(r.status,200);assert.match(r.headers['cache-control'],/no-store/);
+  assert.equal(r.data.products[0].name,(await product()).name);assert.equal(r.data.products[0].price,(await product()).price_cents);
+  for(const key of ['orders','users','sessions','password_hash','email'])assert.equal(key in r.data,false);
+  assert.equal(r.data.canManage,false);assert.equal((await request('/api/puna',{cookie})).data.canManage,true);
+  assert.equal((await submitOrder(orderBody())).status,403);assert.equal(await count('test_orders'),0);
+ });
+ await check('workers denied owner routes, account creation and old mutation surfaces',async()=>{
+  const r=await request('/workspace?view=edit',{cookie:staffCookie});assert.equal(r.status,307);assert.equal(r.headers.location,'/food-truck');
+  for(const path of ['/api/website','/api/accounts'])assert.equal((await request(path,{cookie:staffCookie})).status,403);
+  assert.equal((await request('/api/website',{method:'PATCH',cookie:staffCookie,body:{}})).status,403);
+  assert.equal((await request('/api/accounts',{method:'POST',cookie:staffCookie,body:{role:'owner'}})).status,403);
+  assert.equal((await request('/api/truck')).status,401);
+ });
+ await check('second owner provisioned through authenticated audited API',async()=>{
+  const body={email:'owner-two@example.test',name:'Synthetic second owner',role:'owner',password};const before=await count('audit_log');
+  assert.equal((await request('/api/accounts',{method:'POST',cookie,body,originHeader:null})).status,403);
+  assert.equal((await request('/api/accounts',{method:'POST',cookie,body})).status,201);
+  assert.equal(await count('audit_log'),before+1);secondCookie=await login(body.email);
+  assert.equal((await request('/api/products',{cookie:secondCookie})).status,200);
+  assert.equal((await request('/workspace',{cookie:secondCookie})).status,200);
+  const accounts=await request('/api/accounts',{cookie:secondCookie});assert.equal(accounts.data.users.filter(u=>u.role==='owner').length,2);
+  assert.ok(accounts.data.users.every(u=>!('password_hash' in u)));
+ });
+ const originalSettings=(await request('/api/puna')).data.settings;
+ await check('shared website content uses conflict detection and audit rollback',async()=>{
+  const write=(version,settings,extra={})=>request('/api/website',{method:'PATCH',cookie,body:{version,settings},...extra});
+  const before=await count('audit_log');
+  assert.equal((await write(0,originalSettings,{originHeader:'https://evil.example.test'})).status,403);
+  const results=await Promise.all([write(0,{...originalSettings,hours:'Synthetic hours A'}),write(0,{...originalSettings,hours:'Synthetic hours B'})]);
+  assert.deepEqual(results.map(x=>x.status).sort(),[200,409]);assert.equal(await count('audit_log'),before+1);
+  const current=await request('/api/website',{cookie});
+  assert.equal((await request('/api/puna')).data.settings.hours,current.data.settings.hours);
+  await db.query("CREATE TRIGGER synthetic_settings_failure BEFORE INSERT ON audit_log FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic rollback test'");
+  try{assert.equal((await write(current.data.version,{...originalSettings,hours:'Must roll back'})).status,503)}finally{await db.query('DROP TRIGGER synthetic_settings_failure')}
+  assert.equal((await request('/api/website',{cookie})).data.version,current.data.version);
+  assert.equal((await write(current.data.version,originalSettings)).status,200);
+ });
+ await check('disabled account loses existing session immediately',async()=>{
+  await db.execute("UPDATE users SET active=0 WHERE email='staff@example.test'");
+  assert.equal((await request('/api/truck',{cookie:staffCookie})).status,401);
+  await db.execute("UPDATE users SET active=1 WHERE email='staff@example.test'");
+ });
+ await check('bootstrap removed on restart; synthetic ordering explicitly enabled only in CI',async()=>{
+  const exit=new Promise(resolve=>app.once('exit',resolve));app.kill('SIGTERM');await exit;
+  app=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'],{env:{...process.env,BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'true',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
+  app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));
+  let ready=false;for(let i=0;i<60;i++){try{if((await request('/api/auth')).status===200){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,500))}assert.ok(ready);
+  assert.equal((await auth(owner)).status,403);assert.equal((await request('/api/puna')).data.testOrdersEnabled,true);
+ });
+ await check('test order requires session and origin, prices come from shared database',async()=>{
+  assert.equal((await submitOrder(orderBody(),{cookie:undefined})).status,401);
+  assert.equal((await submitOrder(orderBody(),{originHeader:null})).status,403);
+  for(const action of ['settings','product','status'])assert.equal((await submitOrder({action},{cookie:staffCookie})).status,400);
+  assert.equal((await submitOrder({...orderBody(),total:1})).status,400);
+  const item=await product();assert.equal((await patch(item,{available:true})).status,200);
+  const body=orderBody();testOrderId=body.id;const before=await count('audit_log');
+  const results=await Promise.all([submitOrder(body),submitOrder(body)]);assert.deepEqual(results.map(r=>r.status),[200,200]);
+  assert.equal(await count('test_orders'),1);assert.equal(await count('audit_log'),before+1);assert.equal(results[0].data.total,(await product()).price_cents*2);
+  assert.equal((await submitOrder(body,{cookie:secondCookie})).status,409);
+ });
+ await check('worker status transitions are restricted, versioned and audited atomically',async()=>{
+  const queue=await request('/api/truck',{cookie:staffCookie});assert.equal(queue.status,200);const o=queue.data.orders[0];
+  assert.equal('total' in o,false);assert.equal('price' in o.items[0],false);
+  const update=(status,extra={})=>request('/api/truck',{method:'PATCH',cookie:staffCookie,body:{id:o.id,version:o.version,status},...extra});
+  assert.equal((await update('Preparing',{originHeader:null})).status,403);
+  assert.equal((await update('Collected')).status,403);assert.equal((await update('Cancelled')).status,403);
+  const before=await count('audit_log');
+  await db.query("CREATE TRIGGER synthetic_order_failure BEFORE INSERT ON audit_log FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic rollback test'");
+  try{assert.equal((await update('Preparing')).status,503)}finally{await db.query('DROP TRIGGER synthetic_order_failure')}
+  assert.equal((await request('/api/truck',{cookie:staffCookie})).data.orders[0].status,'New');
+  const results=await Promise.all([update('Preparing'),update('Preparing')]);assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);assert.equal(await count('audit_log'),before+1);
+  const row=(await db.query("SELECT a.actor_id,u.role FROM audit_log a JOIN users u ON a.actor_id=u.id WHERE a.action='status:Preparing'"))[0][0];assert.equal(row.role,'staff');
+ });
  browser=await chromium.launch();
  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
  await context.route('**/*',route=>{const url=new URL(route.request().url());return url.hostname==='localhost'?route.continue():route.abort()});
@@ -130,6 +209,49 @@ try{
   await page.setViewportSize({width:390,height:844});await page.reload();await page.getByRole('button',{name:'Save product',exact:true}).first().waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));assert.ok(await page.getByLabel('Name',{exact:true}).first().isVisible());
  });
+
+ await check('browser edits staging website settings and sees them on the public homepage',async()=>{
+  await page.goto(origin+'/workspace?view=content');await page.getByLabel('Opening hours',{exact:true}).fill('Synthetic test hours only');
+  await page.getByRole('button',{name:'Save website details',exact:true}).click();await page.getByRole('status').waitFor();
+  await page.goto(origin+'/');await page.getByText('Synthetic test hours only',{exact:true}).waitFor();
+  assert.equal(await page.locator('.menu-card h3').first().textContent(),'Synthetic browser edit');
+  assert.equal(await page.getByRole('link',{name:'Workspace',exact:true}).count(),1);
+  await page.getByRole('link',{name:'Workspace',exact:true}).click();await page.waitForURL('**/workspace');
+ });
+ await check('browser food-truck login is restricted and advances a test order',async()=>{
+  const worker=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:390,height:844}});
+  await worker.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());
+  const wp=await worker.newPage();await wp.goto(origin+'/sign-in');await wp.getByLabel('Email',{exact:true}).fill('staff@example.test');await wp.getByLabel('Password',{exact:true}).fill(password);await wp.getByRole('button',{name:'Sign in',exact:true}).click();await wp.waitForURL('**/food-truck');
+  assert.equal(await wp.getByRole('button',{name:'Website',exact:true}).count(),0);assert.equal(await wp.getByRole('link',{name:'Owner dashboard',exact:true}).count(),0);
+  await wp.getByRole('button',{name:'Mark Ready',exact:true}).click();await wp.getByRole('button',{name:'Mark Collected',exact:true}).waitFor();
+  await wp.goto(origin+'/workspace?view=staff');await wp.waitForURL('**/food-truck');
+  mkdirSync('test-artifacts/screenshots',{recursive:true});
+  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await wp.setViewportSize({width,height});assert.ok(await wp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await wp.screenshot({path:'test-artifacts/screenshots/'+device+'-worker.png',fullPage:true})}
+  await wp.getByRole('button',{name:'Sign out',exact:true}).click();await wp.waitForURL('**/sign-in');assert.equal((await request('/api/truck',{cookie:staffCookie})).status,200);
+  await worker.close();
+ });
+ await check('signed-in browser test order reaches the shared truck queue',async()=>{
+  await page.goto(origin+'/');await page.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await page.getByRole('button',{name:/Open bag/}).click();await page.getByLabel('Name for this test').fill('Synthetic browser pickup');await page.getByRole('button',{name:'Place test order',exact:true}).click();await page.getByRole('heading',{name:'Test order saved.',exact:true}).waitFor();
+  const orders=(await request('/api/truck',{cookie:staffCookie})).data.orders;assert.ok(orders.some(o=>o.customer==='Synthetic browser pickup'));
+ });
+ await check('public design, artwork and navigation render on desktop and mobile with synthetic catalogue',async()=>{
+  // Synthetic records only; match the preserved layout's five fresh and three frozen cards.
+  for(let i=1;i<=7;i++)await db.execute('INSERT INTO products(id,name,description,price_cents,kind,available) VALUES(?,?,?,?,?,?)',['fixture-'+i,'Synthetic menu '+i,'Disposable test description. No customer data.',i<=4?800:2500,i<=4?'fresh':'frozen',i<=4?1:0]);
+  const publicContext=await browser.newContext({ignoreHTTPSErrors:true});await publicContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const pp=await publicContext.newPage();
+  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
+   await pp.setViewportSize({width,height});await pp.goto(origin+'/');await pp.getByText('Synthetic test hours only',{exact:true}).waitFor();
+   const logo=pp.locator('.hero-art img');await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth===1600));
+   assert.equal(await pp.locator('.menu-card').count(),5);assert.equal(await pp.locator('.frozen-list h3').count(),3);
+   assert.equal(await pp.locator('.hero').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(17, 17, 17)');
+   const copy=await pp.locator('.hero-copy').boundingBox(),art=await pp.locator('.hero-art').boundingBox();assert.ok(device==='desktop'?art.x>copy.x+copy.width-2:art.y>=copy.y+copy.height-2);
+   assert.ok(await pp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+   await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-home.png',fullPage:true});
+   for(const [name,hash] of [['The menu','#menu'],['Our story','#story'],['Find PUNA','#visit']]){await pp.getByRole('link',{name,exact:true}).click();assert.equal(new URL(pp.url()).hash,hash)}
+   await pp.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await pp.getByRole('button',{name:/Open bag/}).click();await pp.getByRole('link',{name:'Sign in to test ordering',exact:true}).waitFor();assert.equal(await pp.getByRole('button',{name:'Place test order',exact:true}).isDisabled(),true);
+  }
+  await publicContext.close();
+ });
+ await page.goto(origin+'/workspace?view=edit');await page.getByLabel('Name',{exact:true}).first().waitFor();
  await check('capture six synthetic desktop/mobile review screenshots',async()=>{
   mkdirSync('test-artifacts/screenshots',{recursive:true});
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
@@ -159,3 +281,4 @@ try{
  if(app){app.kill('SIGTERM');await new Promise(resolve=>{app.once('exit',resolve);setTimeout(()=>{app.kill('SIGKILL');resolve()},3000).unref()})}
  await db.end();
 }
+

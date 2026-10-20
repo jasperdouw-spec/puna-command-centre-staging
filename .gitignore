@@ -4,3 +4,13 @@ node_modules/
 .env.local
 .env.*.local
 *.log
+
+
+work/
+outputs/
+test-artifacts/
+*.sql.gz
+*.tar.gz
+*.zip
+.env*
+!.env.example
