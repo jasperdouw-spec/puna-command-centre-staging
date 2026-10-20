@@ -46,7 +46,7 @@ try{
  await new Promise(resolve=>proxy.listen(3443,'127.0.0.1',resolve));
  let ready=false;for(let i=0;i<60;i++){try{if((await request('/api/auth')).status===200){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,500))}
  assert.ok(ready,'Production application starts within 30 seconds');
- await check('anonymous API and workspace denied',async()=>{assert.equal((await request('/api/products')).status,401);assert.equal((await request('/workspace')).status,307)});
+ await check('anonymous API and workspace denied',async()=>{assert.equal((await request('/api/products')).status,401);assert.equal((await request('/api/products',{method:'PATCH',body:{}})).status,401);assert.equal((await request('/workspace')).status,307)});
  await check('owner setup rejects bad token and missing/foreign origin',async()=>{
   assert.equal((await auth({...owner,token:'x'.repeat(64)})).status,403);
   assert.equal((await auth(owner,{originHeader:null})).status,403);
@@ -105,6 +105,7 @@ try{
  await check('expired sessions cannot read or write',async()=>{
   await db.query('UPDATE sessions SET expires_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND)');
   assert.equal((await request('/api/products',{cookie})).status,401);
+  assert.equal((await request('/api/products',{method:'PATCH',cookie,body:{}})).status,401);
   assert.equal((await request('/api/auth',{cookie})).data.user,null);
   cookie=await login();
  });
@@ -117,6 +118,8 @@ try{
  const page=await context.newPage();
  await check('browser login and explicit product edit persist after refresh',async()=>{
   await page.goto(origin+'/sign-in');await page.getByLabel('Email',{exact:true}).fill(owner.email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.waitForURL('**/workspace');
+  const logo=page.getByRole('img',{name:'Puna official logo'});await logo.waitFor();assert.ok(await logo.evaluate(im=>im.complete&&im.naturalWidth>0));
+  await page.getByRole('button',{name:'Website',exact:true}).click();await page.getByRole('button',{name:'Products',exact:true}).click();await page.getByRole('button',{name:'Edit',exact:true}).click();
   await page.getByLabel('Name',{exact:true}).first().fill('Synthetic browser edit');
   assert.notEqual((await product()).name,'Synthetic browser edit');
   await page.getByRole('button',{name:'Save product',exact:true}).first().click();await page.getByRole('status').waitFor();await page.reload();await page.getByLabel('Name',{exact:true}).first().waitFor();
@@ -126,6 +129,11 @@ try{
  await check('mobile editor remains usable without horizontal overflow',async()=>{
   await page.setViewportSize({width:390,height:844});await page.reload();await page.getByRole('button',{name:'Save product',exact:true}).first().waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));assert.ok(await page.getByLabel('Name',{exact:true}).first().isVisible());
+ });
+ await check('browser orbital home and logout work',async()=>{
+  await page.getByRole('button',{name:'Puna Home',exact:true}).click();await page.getByRole('img',{name:'Puna official logo'}).waitFor();
+  await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.waitForURL('**/sign-in');
+  await page.goto(origin+'/workspace');await page.waitForURL('**/sign-in');
  });
  await context.close();
  console.log('RESULT '+passed+' integration checks passed; synthetic data only; no deployment or backup restore.');
