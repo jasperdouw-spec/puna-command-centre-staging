@@ -16,7 +16,7 @@ for(const [file,expected] of Object.entries(JSON.parse(readFileSync('tests/prese
 const origin='https://localhost:3443';
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
- console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labels:await p.locator('label').allTextContents(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
+ console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
 function request(path,{method='GET',body,cookie,originHeader=origin}={}){
  return new Promise((resolve,reject)=>{
   const headers={};if(cookie)headers.cookie=cookie;if(originHeader!==null)headers.origin=originHeader;
@@ -219,6 +219,13 @@ try{
   assert.equal(await page.getByRole('link',{name:'Workspace',exact:true}).count(),1);
   await page.getByRole('link',{name:'Workspace',exact:true}).click();await page.waitForURL('**/workspace');
  });
+ await check('second owner uses the same login and full orbital navigation',async()=>{
+  const ownerContext=await browser.newContext({ignoreHTTPSErrors:true});await ownerContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const op=await ownerContext.newPage();
+  await op.goto(origin+'/sign-in');await op.getByLabel('Email',{exact:true}).fill('owner-two@example.test');await op.getByLabel('Password',{exact:true}).fill(password);await op.getByRole('button',{name:'Sign in',exact:true}).click();await op.waitForURL('**/workspace');
+  for(const name of ['Sales','Orders','Production','Inventory','Financials','Marketing','Website','Food Truck','Staff'])await op.getByRole('button',{name,exact:true}).waitFor();
+  await op.getByRole('button',{name:'Staff',exact:true}).click();await op.getByRole('heading',{name:'Team access',exact:true}).waitFor();
+  await op.getByRole('button',{name:'Sign out',exact:true}).click();await op.waitForURL('**/sign-in');await ownerContext.close();
+ });
  await check('browser food-truck login is restricted and advances a test order',async()=>{
   const worker=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:390,height:844}});
   await worker.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());
@@ -228,7 +235,7 @@ try{
   await wp.goto(origin+'/workspace?view=staff');await wp.waitForURL('**/food-truck');
   mkdirSync('test-artifacts/screenshots',{recursive:true});
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await wp.setViewportSize({width,height});assert.ok(await wp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await wp.screenshot({path:'test-artifacts/screenshots/'+device+'-worker.png',fullPage:true})}
-  await wp.getByRole('button',{name:'Sign out',exact:true}).click();await wp.waitForURL('**/sign-in');assert.equal((await request('/api/truck',{cookie:staffCookie})).status,200);
+  await wp.getByRole('button',{name:'Sign out',exact:true}).click();await wp.waitForURL('**/sign-in');await wp.goto(origin+'/food-truck');await wp.waitForURL('**/sign-in');assert.equal((await request('/api/truck',{cookie:staffCookie})).status,200);
   await worker.close();
  });
  await check('signed-in browser test order reaches the shared truck queue',async()=>{
@@ -241,12 +248,13 @@ try{
   const publicContext=await browser.newContext({ignoreHTTPSErrors:true});await publicContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const pp=await publicContext.newPage();
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
    await pp.setViewportSize({width,height});await pp.goto(origin+'/');await pp.getByText('Synthetic test hours only',{exact:true}).waitFor();
-   const logo=pp.locator('.hero-art img');await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth===1600));
+   const logo=pp.locator('.hero-art img');await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth===4724&&im.naturalHeight===4724));
    assert.equal(await pp.locator('.menu-card').count(),5);assert.equal(await pp.locator('.frozen-list h3').count(),3);
    assert.equal(await pp.locator('.hero').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(17, 17, 17)');
    const copy=await pp.locator('.hero-copy').boundingBox(),art=await pp.locator('.hero-art').boundingBox();assert.ok(device==='desktop'?art.x>copy.x+copy.width-2:art.y>=copy.y+copy.height-2);
    assert.ok(await pp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-home.png',fullPage:true});
+   await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-hero.png',fullPage:false});
    for(const [name,hash] of [['The menu','#menu'],['Our story','#story'],['Find PUNA','#visit']]){await pp.getByRole('link',{name,exact:true}).click();assert.equal(new URL(pp.url()).hash,hash)}
    await pp.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await pp.getByRole('button',{name:/Open bag/}).click();await pp.getByRole('link',{name:'Sign in to test ordering',exact:true}).waitFor();assert.equal(await pp.getByRole('button',{name:'Place test order',exact:true}).isDisabled(),true);
   }
@@ -265,7 +273,8 @@ try{
    await page.screenshot({path:'test-artifacts/screenshots/'+device+'-products.png',fullPage:true});
    await page.getByRole('button',{name:'Edit',exact:true}).click();
    await page.getByLabel('Name',{exact:true}).first().waitFor();
-   await page.screenshot({path:'test-artifacts/screenshots/'+device+'-edit.png',fullPage:true});
+   await page.getByRole('heading',{name:'Website → Products → Edit',exact:true}).scrollIntoViewIfNeeded();
+   await page.screenshot({path:'test-artifacts/screenshots/'+device+'-edit.png',fullPage:false});
   }
   writeFileSync('test-artifacts/screenshots/commit.txt',process.env.GITHUB_SHA+'\n');
  });

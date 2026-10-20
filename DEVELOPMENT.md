@@ -1,24 +1,11 @@
-# PUNA Command Centre v1 development
+# Unified Puna staging development
 
-This branch is intentionally **not** connected to the existing Hostinger static demo. Do not deploy to the current static site yet.
+The single intended deployment is the existing staging.punaempanadas.ca website. Work stays on review/puna-isolated-integration. Do not merge main or deploy without verified current Hostinger configuration and exact approvals. No new website, repository or public preview is needed.
 
-## Architecture
-Next.js app with Hostinger MySQL/MariaDB. Pacific Core/Atlas integration is optional later. The public Puna website is a separate repository and is not changed.
+The preserved public website, orbital owner dashboard and restricted worker workspace use one database and session system. The original magenta website remains unchanged while this integration is reviewed. See INTEGRATION.md for provenance, unfinished modules, data mappings and release gates.
 
-## Before deployment
-1. Complete secure login, password bootstrap, role middleware, session revocation, CSRF/origin validation and authorization tests.
-2. Add persistent server-side product, draft and feedback routes with validation, optimistic concurrency and audit logging.
-3. Provision a **new** Hostinger database with least-privilege user. Apply `db/001_initial.sql`, then `db/002_initial_catalog.sql` only after review.
-4. Configure environment variables in Hostinger; never commit secrets.
-5. Verify build, typecheck, tests, staging deployment, backup and rollback.
-6. Migrate the hosting slot from static to Next.js only in an attended, approved deployment.
+Use npm ci, npm run typecheck and npm run build. Application integration/browser tests run exclusively in the authorized GitHub Actions job on a standard GitHub-hosted Linux runner with disposable MariaDB and synthetic data. Do not run localhost experiments on the MacBook or contact Pacific Core/Mac mini. Never copy private recovery material or production credentials into CI.
 
-Prices in seed data are provisional website values, not live Square prices. All products start unavailable. No payment processing is implemented.
+No schema migration runs automatically. Inspect current schema and data before proposing additive changes for the isolated staging database. Existing seed files are not a migration or authorization to reset records. db/004 requires a version-column preflight; db/005 introduces staging settings and test orders only after separate approval. No live order/payment or publishing integration is connected.
 
-## Secure login and product editor milestone (2026-10-19)
-- Auth API, one-time owner setup screen, hashed sessions, role-checked product GET/PATCH, CSRF origin checks, audit writes and login-attempt throttling are committed.
-- **Required migration:** after 001 and 002, import `db/003_auth_rate_limits.sql` into the same dedicated Puna database. The auth API will not work until this table exists.
-- Set BOOTSTRAP_TOKEN as a random 32+ character value on staging only. Create the first owner at `/setup`; remove BOOTSTRAP_TOKEN and restart immediately afterward.
-- Set DB_HOST, DB_PORT, DB_NAME, DB_USER and DB_PASSWORD only in Hostinger staging environment variables. Never put credentials in GitHub or chat.
-- CI workflow runs typecheck and build on the development branch. **Do not consider this code security-tested until CI passes and negative/auth/session/product tests have been run against an isolated staging database.**
-- Public demo on `main` stays untouched. Never deploy development branch directly over the static demo.
+The local archived-deployment recovery rehearsal is still BLOCKED. Passing synthetic integration tests does not verify restoration, live data migration, current magenta drift or hosted operations. Obsolete resources may be removed only after replacement/migration/recovery acceptance and individual resource-specific confirmations.
