@@ -14,6 +14,8 @@ assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 const db=await mysql.createConnection({host:'127.0.0.1',port:Number(process.env.DB_PORT),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME,multipleStatements:true});
 for(const [file,expected] of Object.entries(JSON.parse(readFileSync('tests/preserved-assets.json','utf8'))))assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),expected,'Preserved public asset '+file);
 const origin='https://localhost:3443';
+const appArgs=process.env.PUNA_TEST_STANDALONE==='true'?['.next/standalone/server.js']:['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'];
+const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100'};
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
  console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
@@ -38,7 +40,7 @@ try{
  for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql','005_unified_staging.sql'])await db.query(readFileSync('db/'+file,'utf8'));
  await db.execute("INSERT INTO products(id,name,description,price_cents,kind) VALUES(?,?,?,?,?)",['synthetic-product','Synthetic product','Disposable integration fixture',1234,'fresh']);
  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout','/tmp/puna-ci-key.pem','-out','/tmp/puna-ci-cert.pem','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost'],{stdio:'ignore'});
- app=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'],{env:{...process.env,BOOTSTRAP_TOKEN:token,STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
+ app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,BOOTSTRAP_TOKEN:token,STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
  // Only application diagnostics, never request bodies, session tokens or database rows.
  app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));
  proxy=https.createServer({key:readFileSync('/tmp/puna-ci-key.pem'),cert:readFileSync('/tmp/puna-ci-cert.pem')},(req,res)=>{
@@ -163,7 +165,7 @@ try{
  });
  await check('bootstrap removed on restart; synthetic ordering explicitly enabled only in CI',async()=>{
   const exit=new Promise(resolve=>app.once('exit',resolve));app.kill('SIGTERM');await exit;
-  app=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'],{env:{...process.env,BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'true',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
+  app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'true',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
   app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));
   let ready=false;for(let i=0;i<60;i++){try{if((await request('/api/auth')).status===200){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,500))}assert.ok(ready);
   assert.equal((await auth(owner)).status,403);assert.equal((await request('/api/puna')).data.testOrdersEnabled,true);
