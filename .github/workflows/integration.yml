@@ -47,9 +47,11 @@ jobs:
       - name: Test actual production application over local HTTPS
         run: timeout 240s node tests/integration.mjs
       - name: Upload synthetic visual review only
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: puna-visual-review-${{ github.sha }}
           path: test-artifacts/screenshots/
           retention-days: 7
-          if-no-files-found: error
+          if-no-files-found: ignore
+

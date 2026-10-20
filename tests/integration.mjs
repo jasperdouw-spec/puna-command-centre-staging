@@ -15,7 +15,8 @@ const db=await mysql.createConnection({host:'127.0.0.1',port:Number(process.env.
 for(const [file,expected] of Object.entries(JSON.parse(readFileSync('tests/preserved-assets.json','utf8'))))assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),expected,'Preserved public asset '+file);
 const origin='https://localhost:3443';
 let app,proxy,browser;let passed=0;
-const check=async(name,fn)=>{await fn();passed++;console.log('PASS '+name)};
+const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
+ console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labels:await p.locator('label').allTextContents(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
 function request(path,{method='GET',body,cookie,originHeader=origin}={}){
  return new Promise((resolve,reject)=>{
   const headers={};if(cookie)headers.cookie=cookie;if(originHeader!==null)headers.origin=originHeader;
@@ -194,7 +195,7 @@ try{
  browser=await chromium.launch();
  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
  await context.route('**/*',route=>{const url=new URL(route.request().url());return url.hostname==='localhost'?route.continue():route.abort()});
- const page=await context.newPage();
+ const page=await context.newPage();page.on('pageerror',e=>console.log('Browser error: '+e.message));
  await check('browser login and explicit product edit persist after refresh',async()=>{
   await page.goto(origin+'/sign-in');await page.getByLabel('Email',{exact:true}).fill(owner.email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.waitForURL('**/workspace');
   const logo=page.getByRole('img',{name:'Puna official logo'});await logo.waitFor();assert.ok(await logo.evaluate(im=>im.complete&&im.naturalWidth>0));
