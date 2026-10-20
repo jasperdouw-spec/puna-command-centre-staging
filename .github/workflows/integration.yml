@@ -82,7 +82,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/puna-candidate"
           npm ci --no-audit --no-fund
-          node -e 'for(const p of ["typescript","@tailwindcss/postcss","tailwindcss","tw-animate-css","playwright"]){console.log("INSTALLED "+p+" "+require.resolve(p))}'
+          node -e 'for(const p of ["typescript","@tailwindcss/postcss","tailwindcss","tw-animate-css","playwright"]){const m=JSON.parse(require("node:fs").readFileSync("node_modules/"+p+"/package.json","utf8"));console.log("INSTALLED "+p+" "+m.version)}'
           npx playwright install --with-deps chromium
           mkdir -p "$RUNNER_TEMP/candidate-native-swc"
           for p in node_modules/@next/swc-linux-x64-*; do
