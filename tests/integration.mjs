@@ -273,8 +273,8 @@ try{
    await page.screenshot({path:'test-artifacts/screenshots/'+device+'-products.png',fullPage:true});
    await page.getByRole('button',{name:'Edit',exact:true}).click();
    await page.getByLabel('Name',{exact:true}).first().waitFor();
-   await page.getByRole('heading',{name:'Website → Products → Edit',exact:true}).scrollIntoViewIfNeeded();
-   await page.screenshot({path:'test-artifacts/screenshots/'+device+'-edit.png',fullPage:false});
+   await page.locator('article.panel').first().evaluate(el=>el.scrollIntoView({behavior:'instant',block:'start'}));
+   await page.locator('article.panel').first().screenshot({path:'test-artifacts/screenshots/'+device+'-edit.png',animations:'disabled'});
   }
   writeFileSync('test-artifacts/screenshots/commit.txt',process.env.GITHUB_SHA+'\n');
  });
