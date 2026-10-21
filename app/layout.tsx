@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./operations.css";
+import "./customer.css";
 
 export const metadata: Metadata = {
   title: "PUNA — South American Surf Fuel",

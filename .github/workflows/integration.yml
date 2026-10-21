@@ -10,7 +10,7 @@ concurrency:
 jobs:
   integration:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     services:
       mariadb:
         image: mariadb:10.11
@@ -46,31 +46,7 @@ jobs:
           npm install --global npm@10.9.9 --no-audit --no-fund
           node --version
           npm --version
-      - name: Reproduce failure from the exact received source archive
-        env:
-          NODE_ENV: production
-          NEXT_TEST_WASM: '1'
-        run: |
-          mkdir -p test-artifacts/build-evidence
-          curl --fail --silent --show-error --location --max-time 60 \
-            https://staging.punaempanadas.ca/unified-puna_20261020_091655.zip \
-            -o "$RUNNER_TEMP/received.zip"
-          echo "cc4f9c77b4a527f007df2e2b804b8811d9e78efe5864b2adb3e7182f0f18592d  $RUNNER_TEMP/received.zip" | sha256sum --check
-          python3 scripts/hostinger-build-check.py baseline "$RUNNER_TEMP/received.zip" "$RUNNER_TEMP/puna-baseline"
-          cd "$RUNNER_TEMP/puna-baseline"
-          npm install --no-audit --no-fund
-          node -e 'for(const p of ["typescript","@tailwindcss/postcss","tailwindcss","tw-animate-css"]){try{require.resolve(p);throw new Error(p+" unexpectedly installed")}catch(e){if(e.code!=="MODULE_NOT_FOUND")throw e;console.log("CONFIRMED OMITTED "+p)}}'
-          # Next's own test flag selects Hostinger's observed WASM compiler path.
-          node -e 'require("next/dist/build/swc").loadBindings().then(b=>{require("node:assert/strict").equal(b.isWasm,true);console.log("VERIFIED WASM compiler")})'
-          set +e
-          timeout 180s npm run build > "$GITHUB_WORKSPACE/test-artifacts/build-evidence/baseline-build.log" 2>&1
-          result=$?
-          set -e
-          cat "$GITHUB_WORKSPACE/test-artifacts/build-evidence/baseline-build.log"
-          test "$result" -eq 1
-          grep -F "Can't resolve '@/components/ui/sheet'" "$GITHUB_WORKSPACE/test-artifacts/build-evidence/baseline-build.log"
-          grep -F "Can't resolve '@/lib/db'" "$GITHUB_WORKSPACE/test-artifacts/build-evidence/baseline-build.log"
-      - name: Package committed repair and extract a clean deployment root
+      - name: Package committed candidate and extract a clean deployment root
         run: |
           python3 scripts/package-source.py test-artifacts/deployment
           python3 scripts/hostinger-build-check.py candidate test-artifacts/deployment/puna-source.zip "$RUNNER_TEMP/puna-candidate"
@@ -89,6 +65,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/puna-candidate"
           node -e 'require("next/dist/build/swc").loadBindings().then(b=>{require("node:assert/strict").equal(b.isWasm,true);console.log("VERIFIED WASM compiler")})'
+          node tests/domain.mjs
           npm run typecheck
           npm run build
           cp -R public .next/standalone/public

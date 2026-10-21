@@ -6,6 +6,7 @@ import https from 'node:https';
 import http from 'node:http';
 import mysql from 'mysql2/promise';
 import {chromium} from 'playwright';
+import {runCommerceChecks} from './commerce-integration.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS,'true','Synthetic integration suite is CI-only');
 assert.equal(process.env.DB_HOST,'127.0.0.1');
@@ -14,8 +15,8 @@ assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 const db=await mysql.createConnection({host:'127.0.0.1',port:Number(process.env.DB_PORT),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME,multipleStatements:true});
 for(const [file,expected] of Object.entries(JSON.parse(readFileSync('tests/preserved-assets.json','utf8'))))assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),expected,'Preserved public asset '+file);
 const origin='https://localhost:3443';
-const appArgs=process.env.PUNA_TEST_STANDALONE==='true'?['.next/standalone/server.js']:['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'];
-const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100'};
+const appArgs=['--import', './tests/provider-fixture.mjs',...(process.env.PUNA_TEST_STANDALONE==='true'?['.next/standalone/server.js']:['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'])];
+const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100',PUNA_CHECKOUT_MODE:'square-sandbox',SQUARE_SANDBOX_ACCESS_TOKEN:'synthetic-not-a-provider-secret',SQUARE_SANDBOX_LOCATION_ID:'synthetic-location',SQUARE_SANDBOX_APPLICATION_ID:'synthetic-application',SQUARE_WEBHOOK_SIGNATURE_KEY:'synthetic-webhook-only',PUNA_JOB_TOKEN:'synthetic-ci-job-token-never-use-on-hosting'};
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
  console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
@@ -37,7 +38,7 @@ let cookie;
 const product=async()=>{const r=await request('/api/products',{cookie});assert.equal(r.status,200);return r.data.products[0]};
 const patch=(p,extra={},options={})=>request('/api/products',{method:'PATCH',cookie,body:{id:p.id,version:p.version,name:p.name,description:p.description,price_cents:p.price_cents,available:!!p.available,...extra},...options});
 try{
- for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql','005_unified_staging.sql'])await db.query(readFileSync('db/'+file,'utf8'));
+ for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql','005_unified_staging.sql','006_commerce.sql'])await db.query(readFileSync('db/'+file,'utf8'));
  await db.execute("INSERT INTO products(id,name,description,price_cents,kind) VALUES(?,?,?,?,?)",['synthetic-product','Synthetic product','Disposable integration fixture',1234,'fresh']);
  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout','/tmp/puna-ci-key.pem','-out','/tmp/puna-ci-cert.pem','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost'],{stdio:'ignore'});
  app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,BOOTSTRAP_TOKEN:token,STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
@@ -194,6 +195,7 @@ try{
   const results=await Promise.all([update('Preparing'),update('Preparing')]);assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);assert.equal(await count('audit_log'),before+1);
   const row=(await db.query("SELECT a.actor_id,u.role FROM audit_log a JOIN users u ON a.actor_id=u.id WHERE a.action='status:Preparing'"))[0][0];assert.equal(row.role,'staff');
  });
+ await runCommerceChecks({db,request,check,cookie,staffCookie});
  browser=await chromium.launch();
  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
  await context.route('**/*',route=>{const url=new URL(route.request().url());return url.hostname==='localhost'?route.continue():route.abort()});
@@ -228,21 +230,20 @@ try{
   await op.getByRole('button',{name:'Staff',exact:true}).click();await op.getByRole('heading',{name:'Team access',exact:true}).waitFor();
   await op.getByRole('button',{name:'Sign out',exact:true}).click();await op.waitForURL('**/sign-in');await ownerContext.close();
  });
- await check('browser food-truck login is restricted and advances a test order',async()=>{
+ await check('browser food-truck login is restricted and legacy test orders never enter paid queue',async()=>{
   const worker=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:390,height:844}});
   await worker.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());
   const wp=await worker.newPage();await wp.goto(origin+'/sign-in');await wp.getByLabel('Email',{exact:true}).fill('staff@example.test');await wp.getByLabel('Password',{exact:true}).fill(password);await wp.getByRole('button',{name:'Sign in',exact:true}).click();await wp.waitForURL('**/food-truck');
   assert.equal(await wp.getByRole('button',{name:'Website',exact:true}).count(),0);assert.equal(await wp.getByRole('link',{name:'Owner dashboard',exact:true}).count(),0);
-  await wp.getByRole('button',{name:'Mark Ready',exact:true}).click();await wp.getByRole('button',{name:'Mark Collected',exact:true}).waitFor();
+  await wp.getByRole('heading',{name:'Truck preparation & pickup',exact:true}).waitFor();assert.equal(await wp.getByText('Synthetic pickup',{exact:true}).count(),0);assert.equal(await wp.getByRole('button',{name:'Mark Ready',exact:true}).count(),0);
   await wp.goto(origin+'/workspace?view=staff');await wp.waitForURL('**/food-truck');
   mkdirSync('test-artifacts/screenshots',{recursive:true});
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await wp.setViewportSize({width,height});assert.ok(await wp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await wp.screenshot({path:'test-artifacts/screenshots/'+device+'-worker.png',fullPage:true})}
   await wp.getByRole('button',{name:'Sign out',exact:true}).click();await wp.waitForURL('**/sign-in');await wp.goto(origin+'/food-truck');await wp.waitForURL('**/sign-in');assert.equal((await request('/api/truck',{cookie:staffCookie})).status,200);
   await worker.close();
  });
- await check('signed-in browser test order reaches the shared truck queue',async()=>{
-  await page.goto(origin+'/');await page.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await page.getByRole('button',{name:/Open bag/}).click();await page.getByLabel('Name for this test').fill('Synthetic browser pickup');await page.getByRole('button',{name:'Place test order',exact:true}).click();await page.getByRole('heading',{name:'Test order saved.',exact:true}).waitFor();
-  const orders=(await request('/api/truck',{cookie:staffCookie})).data.orders;assert.ok(orders.some(o=>o.customer==='Synthetic browser pickup'));
+ await check('customer bag persists without placing unpaid orders',async()=>{
+  const before=await count('test_orders');await page.goto(origin+'/');await page.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await page.goto(origin+'/cart');await page.getByRole('heading',{name:'Your bag',exact:true}).waitFor();await page.reload();await page.getByRole('heading',{name:'Synthetic browser edit',exact:true}).waitFor();assert.equal(await count('test_orders'),before);assert.equal(await count('pickup_orders'),0);assert.equal(await page.getByRole('button',{name:'Place test order',exact:true}).count(),0);
  });
  await check('public design, artwork and navigation render on desktop and mobile with synthetic catalogue',async()=>{
   // Synthetic records only; match the preserved layout's five fresh and three frozen cards.
@@ -250,15 +251,15 @@ try{
   const publicContext=await browser.newContext({ignoreHTTPSErrors:true});await publicContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const pp=await publicContext.newPage();
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
    await pp.setViewportSize({width,height});await pp.goto(origin+'/');await pp.getByText('Synthetic test hours only',{exact:true}).waitFor();
-   const logo=pp.locator('.hero-art img');await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth===4724&&im.naturalHeight===4724));
-   assert.equal(await pp.locator('.menu-card').count(),5);assert.equal(await pp.locator('.frozen-list h3').count(),3);
-   assert.equal(await pp.locator('.hero').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(17, 17, 17)');
-   const copy=await pp.locator('.hero-copy').boundingBox(),art=await pp.locator('.hero-art').boundingBox();assert.ok(device==='desktop'?art.x>copy.x+copy.width-2:art.y>=copy.y+copy.height-2);
+   const logo=pp.locator('.hero-visual img');await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth>0&&im.naturalHeight>0));
+   assert.equal(await pp.locator('.product,.extra').count(),5);assert.equal(await pp.locator('#frozen').count(),0);assert.equal(await pp.getByText('Factory',{exact:true}).count(),0);
+   assert.equal(await pp.locator('.customer').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(21, 19, 15)');
+   const copy=await pp.locator('.hero-copy').boundingBox(),art=await pp.locator('.hero-visual').boundingBox();assert.ok(device==='desktop'?art.x>copy.x+copy.width-2:art.y>=copy.y+copy.height-2);
    assert.ok(await pp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-home.png',fullPage:true});
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-hero.png',fullPage:false});
-   for(const [name,hash] of [['The menu','#menu'],['Our story','#story'],['Find PUNA','#visit']]){await pp.getByRole('link',{name,exact:true}).click();assert.equal(new URL(pp.url()).hash,hash)}
-   await pp.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await pp.getByRole('button',{name:/Open bag/}).click();await pp.getByRole('link',{name:'Sign in to test ordering',exact:true}).waitFor();assert.equal(await pp.getByRole('button',{name:'Place test order',exact:true}).isDisabled(),true);
+   for(const [name,hash] of [['The menu','#menu'],['Our story','#story'],['Pickup','#pickup']]){await pp.getByRole('link',{name,exact:true}).click();assert.equal(new URL(pp.url()).hash,hash)}
+   await pp.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await pp.getByRole('button',{name:/Open bag/}).click();await pp.getByRole('dialog',{name:'Your bag'}).waitFor();assert.equal(await pp.getByRole('button',{name:'Place test order',exact:true}).count(),0);await pp.getByRole('button',{name:'Close cart',exact:true}).click();
   }
   await publicContext.close();
  });

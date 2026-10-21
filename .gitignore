@@ -14,3 +14,5 @@ test-artifacts/
 *.zip
 .env*
 !.env.example
+
+.domain-tests/
