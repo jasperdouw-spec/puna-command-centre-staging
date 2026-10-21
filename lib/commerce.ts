@@ -66,16 +66,16 @@ export async function checkoutQuote(cart:CartInput){
   return {quote,slots:batches.filter(b=>batchFits(b as never,quote,now)).map(b=>({id:b.id,pickupAt:new Date(b.pickup_at).toISOString(),pickupUntil:new Date(b.pickup_until).toISOString(),remainingPieces:b.oven_capacity-b.oven_committed})),serverTime:new Date(now).toISOString()};
  });
 }
-export type HoldInput={checkoutKey:string;accessKey:string;batchId:string;cart:CartInput;name:string;email:string};
+export type HoldInput={checkoutKey:string;accessKey:string;batchId:string;cart:CartInput;expectedTotal:number;name:string;email:string};
 export async function reserve(input:HoldInput){
- const bodyHash=digest(JSON.stringify({batchId:input.batchId,cart:[...input.cart].sort((a,b)=>a.id.localeCompare(b.id)),name:input.name,email:input.email.toLowerCase(),receipt:digest(input.accessKey)}));
+ const bodyHash=digest(JSON.stringify({batchId:input.batchId,cart:[...input.cart].sort((a,b)=>a.id.localeCompare(b.id)),name:input.name,email:input.email.toLowerCase(),receipt:digest(input.accessKey),expectedTotal:input.expectedTotal}));
  return transaction(async(c,now)=>{
   await expireDefiniteHolds(c,now);
   const [existing]=await c.execute<RowDataPacket[]>('SELECT * FROM pickup_orders WHERE checkout_key=? FOR UPDATE',[input.checkoutKey]);
   if(existing.length){const o=existing[0];if(o.request_hash!==bodyHash)throw new CommerceError('CHECKOUT_CONFLICT');return {id:o.id,expiresAt:new Date(o.expires_at).toISOString(),totalCents:o.total_cents,state:o.payment_status};}
   const config=await configuration(c);
   const products=await saleProducts(c,input.cart.map(i=>i.id),true);for(const p of products)p.physical_units=Math.max(0,p.physical_units-config.value.safetyStock);
-  const q=quoteCart(input.cart,products,config.value.maxItems);
+  const q=quoteCart(input.cart,products,config.value.maxItems);if(q.total_cents!==input.expectedTotal)throw new CommerceError('PRICES_CHANGED_REVIEW_BAG');
   const [batches]=await c.execute<RowDataPacket[]>('SELECT * FROM service_batches WHERE id=? FOR UPDATE',[input.batchId]);const b=batches[0];
   if(!b||!batchFits(b as never,q,now)||new Date(b.pickup_at).getTime()>now+config.value.horizonDays*86400000)throw new CommerceError('PICKUP_NO_LONGER_AVAILABLE');
   const id=randomUUID(),expiry=Math.min(now+config.value.holdSeconds*1000,new Date(b.cutoff_at).getTime());

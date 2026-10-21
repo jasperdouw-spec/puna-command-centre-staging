@@ -39,7 +39,11 @@ export async function saveCapacity(actor:number,input:{configuration:CapacityCon
   for(const date of input.dates)for(const planned of planBatches(config,date)){
    if(Date.parse(planned.bakeAt)<Date.parse(input.effectiveAt)||Date.parse(planned.bakeAt)<=now||Date.parse(planned.bakeAt)>now+config.horizonDays*86400000)continue;
    const [old]=await c.execute<RowDataPacket[]>('SELECT * FROM service_batches WHERE bake_at=? FOR UPDATE',[sqlDate(planned.bakeAt)]);
+   if(!old.length){const [overlap]=await c.execute<RowDataPacket[]>('SELECT b.id FROM service_batches b JOIN capacity_versions v ON v.id=b.configuration_id WHERE b.state<>\'completed\' AND b.bake_at<? AND DATE_ADD(b.bake_at,INTERVAL (CAST(JSON_VALUE(v.configuration,\'$.cycleMinutes\') AS UNSIGNED)+CAST(JSON_VALUE(v.configuration,\'$.turnaroundMinutes\') AS UNSIGNED)) MINUTE)>? LIMIT 1 FOR UPDATE',[sqlDate(Date.parse(planned.bakeAt)+(config.cycleMinutes+config.turnaroundMinutes)*60000),sqlDate(planned.bakeAt)]);if(overlap.length){conflicts.push(overlap[0].id);continue;}}
    if(old.length){
+    // Existing paid pickup promises do not move when a schedule changes.
+    if(Number(old[0].oven_committed)>0||Number(old[0].packing_committed_seconds)>0){await c.execute("UPDATE service_batches SET state=IF(state='open','paused',state),exception_note='Schedule changed: existing commitments require owner review',version=version+1 WHERE id=?",[old[0].id]);conflicts.push(old[0].id);}
+    else if(old[0].state==='open'||old[0].state==='paused'){await c.execute('UPDATE service_batches SET configuration_id=?,pickup_at=?,pickup_until=?,oven_capacity=?,packing_capacity_seconds=?,state=\'open\',version=version+1 WHERE id=?',[version,sqlDate(planned.pickupAt),sqlDate(planned.pickupUntil),planned.ovenCapacity,planned.packingCapacitySeconds,old[0].id]);}
     // Preserve the version attached to existing reservations; flag capacity reductions for review.
     if(Number(old[0].oven_committed)>planned.ovenCapacity||Number(old[0].packing_committed_seconds)>planned.packingCapacitySeconds){
      conflicts.push(old[0].id);await c.execute("UPDATE service_batches SET exception_note='New capacity is below existing commitments',state=IF(state='open','paused',state),version=version+1 WHERE id=?",[old[0].id]);
@@ -63,7 +67,7 @@ export async function progressBatch(actor:number,id:string,version:number,action
   const [rows]=await c.execute<RowDataPacket[]>('SELECT * FROM service_batches WHERE id=? FOR UPDATE',[id]);const b=rows[0];
   if(!b||Number(b.version)!==version)throw new CommerceError('BATCH_CHANGED');
   if(action==='pause'){if(!['open','paused'].includes(b.state))throw new CommerceError('BATCH_ALREADY_STARTED');await c.execute("UPDATE service_batches SET state='paused',version=version+1 WHERE id=?",[id]);await audit(c,actor,'batch:pause','batch',id);return {state:'paused'};}
-  const expected={close:'open',load:'closed',ready:'loaded'}[action];if(b.state!==expected)throw new CommerceError('INVALID_BATCH_TRANSITION');
+  const expected={close:'open',load:'closed',ready:'loaded'}[action];if(!(action==='close'&&b.state==='paused')&&b.state!==expected)throw new CommerceError('INVALID_BATCH_TRANSITION');
   if(action==='close'&&new Date(b.cutoff_at).getTime()>now)throw new CommerceError('BATCH_NOT_CLOSED_YET');
   const [orders]=await c.execute<RowDataPacket[]>("SELECT id,fulfilment_status FROM pickup_orders WHERE batch_id=? AND payment_status='paid' AND refund_status='none' AND order_status='open' AND hold_status='committed' ORDER BY id FOR UPDATE",[id]);
   const manifest:{orders:Array<{id:string;items:Array<{id:string;name:string;quantity:number}>}>;closedAt:string}={orders:[],closedAt:new Date(now).toISOString()};

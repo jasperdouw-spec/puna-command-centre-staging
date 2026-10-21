@@ -17,21 +17,23 @@ export default function PunaApp({cartPage=false}:{cartPage?:boolean}){
  const [data,setData]=useState<Data>({canManage:false,workspaceHref:'/sign-in',products:[],settings:initialSettings});
  const [cart,setCart]=useState<Record<string,number>>({}),[hydrated,setHydrated]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[loaded,setLoaded]=useState(false);
  const [config,setConfig]=useState<Config>({mode:'disabled',applicationId:null,locationId:null}),[quote,setQuote]=useState<Quote|null>(null),[slot,setSlot]=useState(''),[busy,setBusy]=useState(false);
- const [name,setName]=useState(''),[email,setEmail]=useState(''),[hold,setHold]=useState<{id:string;expiresAt:string;totalCents:number}|null>(null),[accessKey,setAccessKey]=useState(''),[cardReady,setCardReady]=useState(false);
- const dialog=useRef<HTMLDialogElement>(null),card=useRef<Card|null>(null),attempt=useRef<string>('');
+ const [name,setName]=useState(''),[email,setEmail]=useState(''),[hold,setHold]=useState<{id:string;expiresAt:string;totalCents:number}|null>(null),[accessKey,setAccessKey]=useState(''),[cardReady,setCardReady]=useState(false),[paymentPending,setPaymentPending]=useState(false);
+ const dialog=useRef<HTMLDialogElement>(null),card=useRef<Card|null>(null),attempt=useRef<{fingerprint:string;body:any}|null>(null);
  const load=useCallback(async()=>{const r=await fetch('/api/puna',{cache:'no-store'});if(!r.ok)throw Error('The menu could not be loaded.');setData(await r.json());setLoaded(true)},[]);
  useEffect(()=>{load().catch(e=>setError(e.message));fetch('/api/checkout',{cache:'no-store'}).then(r=>r.json()).then(setConfig).catch(()=>{});
   try{const raw=JSON.parse(localStorage.getItem('puna-cart-v1')||'{}'),clean:Record<string,number>={};for(const [id,n]of Object.entries(raw)){if(id.length<=64&&typeof n==='number'&&Number.isInteger(n)&&n>0&&n<=100)clean[id]=n;}setCart(clean)}catch{}setHydrated(true);
  },[load]);
  useEffect(()=>{if(hydrated)localStorage.setItem('puna-cart-v1',JSON.stringify(cart));},[cart,hydrated]);
  useEffect(()=>()=>{void card.current?.destroy()},[]);
+ useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),3500);return()=>clearTimeout(timer)},[notice]);
  const products=data.products.filter(p=>p.kind==='fresh'),selected=products.filter(p=>cart[p.id]),quantity=Object.values(cart).reduce((a,b)=>a+b,0),subtotal=selected.reduce((n,p)=>n+p.price*cart[p.id],0);
  function change(p:Product,delta:number){if(hold){setError('Finish or let the current checkout expire before changing your bag.');return;}setCart(c=>({...c,[p.id]:Math.max(0,Math.min(100,(c[p.id]||0)+delta))}));setQuote(null);setSlot('');setNotice(delta>0?p.name+' added to your bag':'Bag updated');}
  function openBag(){if(cartPage)return;dialog.current?.showModal();}
  async function chooseSlot(){setBusy(true);setError('');try{const q=await checkout({action:'quote',cart:selected.map(p=>({id:p.id,quantity:cart[p.id]}))});setQuote(q);setSlot('');if(!q.slots.length)setError('No pickup window can fit this entire bag. Try a later date or a smaller order.')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  async function reserve(e:React.FormEvent){e.preventDefault();if(config.mode!=='square-sandbox')return;setBusy(true);setError('');try{
-  const key=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');attempt.current=crypto.randomUUID();setAccessKey(key);
-  const h=await checkout({action:'reserve',checkoutKey:attempt.current,accessKey:key,batchId:slot,cart:selected.map(p=>({id:p.id,quantity:cart[p.id]})),name,email});setHold(h);
+  const fields={batchId:slot,cart:selected.map(p=>({id:p.id,quantity:cart[p.id]})),name,email,expectedTotal:quote!.quote.total_cents},fingerprint=JSON.stringify(fields);
+  if(attempt.current?.fingerprint!==fingerprint){const key=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');attempt.current={fingerprint,body:{action:'reserve',checkoutKey:crypto.randomUUID(),accessKey:key,...fields}};}
+  setAccessKey(attempt.current.body.accessKey);const h=await checkout(attempt.current.body);setHold(h);
  }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  useEffect(()=>{if(!hold||!config.applicationId||!config.locationId)return;let cancelled=false;
   (async()=>{if(!window.Square)await new Promise<void>((resolve,reject)=>{const script=document.createElement('script');script.src='https://sandbox.web.squarecdn.com/v1/square.js';script.onload=()=>resolve();script.onerror=()=>reject(Error('Secure card entry could not load.'));document.head.appendChild(script);});
@@ -40,19 +42,19 @@ export default function PunaApp({cartPage=false}:{cartPage?:boolean}){
  },[hold,config.applicationId,config.locationId]);
  async function pay(){if(!card.current||!hold)return;setBusy(true);setError('');try{
   const token=await card.current.tokenize();if(token.status!=='OK'||!token.token)throw Error('Check the card details and try again.');
-  const result=await checkout({action:'pay',id:hold.id,accessKey,sourceToken:token.token});
+  setPaymentPending(true);const result=await checkout({action:'pay',id:hold.id,accessKey,sourceToken:token.token});
   if(result.state!=='paid')throw Error('Payment is being checked. Do not pay again.');
   setCart({});localStorage.removeItem('puna-cart-v1');location.assign('/receipt#'+hold.id+'.'+accessKey);
  }catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  const bag=<div className="drawer-inner"><div className="drawer-head"><h2>Your bag</h2>{!cartPage&&<button className="close" onClick={()=>dialog.current?.close()} aria-label="Close cart">×</button>}</div>
  {!quantity?<div className="empty">Your bag is waiting for something good.<p><a className="btn" href="/#menu">Explore the menu</a></p></div>:<><div className="cart-lines">{selected.map(p=><div className="line" key={p.id}><div><h3>{p.name}</h3><small>{money(p.price)} each</small></div><div className="quantity"><button disabled={!!hold} onClick={()=>change(p,-1)} aria-label={'Remove one '+p.name}>−</button><output>{cart[p.id]}</output><button disabled={!!hold} onClick={()=>change(p,1)} aria-label={'Add one '+p.name}>+</button></div></div>)}</div>
- {selected.length!==Object.keys(cart).filter(id=>cart[id]>0).length&&<p role="alert">Some saved items are no longer on the menu. Review your bag.</p>}
+ {selected.length!==Object.keys(cart).filter(id=>cart[id]>0).length&&<p role="alert">Some saved items are no longer on the menu. <button disabled={!!hold} onClick={()=>setCart(c=>Object.fromEntries(Object.entries(c).filter(([id])=>products.some(p=>p.id===id))))}>Remove unavailable saved items</button></p>}
  <div className="summary"><div><span>Subtotal</span><b>{money(quote?.quote.subtotal_cents??subtotal)}</b></div><div><span>Tax</span><b>{quote?money(quote.quote.tax_cents):'Calculated after verification'}</b></div><div><span>Container deposits</span><b>{quote?money(quote.quote.deposit_cents):'Verified at checkout'}</b></div><div className="total"><span>{quote?'Total':'Subtotal'}</span><b>{money(quote?.quote.total_cents??subtotal)} CAD</b></div></div>
  <fieldset className="location-box"><legend>Truck pickup only</legend><p>Puna food truck · Canadian Princess</p><p className="pickup-details">1943 Peninsula Road, Ucluelet<br/>Collect from the truck, not reception.</p></fieldset>
  <p className="demo-caption">Your bag does not reserve food. A short checkout hold reserves stock and capacity; verified online payment confirms the order.</p>
  {!hold&&<button className="btn checkout" disabled={busy||!loaded||!selected.length} onClick={chooseSlot}>Find an available pickup window →</button>}
  {quote&&quote.slots.length>0&&!hold&&<form onSubmit={reserve}><label className="field">Pickup window<select required value={slot} onChange={e=>setSlot(e.target.value)}><option value="">Choose a window</option>{quote.slots.map(s=><option key={s.id} value={s.id}>{when(s.pickupAt)} – {when(s.pickupUntil)}</option>)}</select></label><label className="field">Name for collection<input required maxLength={80} autoComplete="given-name" value={name} onChange={e=>setName(e.target.value)}/></label><label className="field">Email for this order<input required type="email" maxLength={254} autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/></label><button className="btn checkout" disabled={busy||config.mode==='disabled'}>Continue to secure Sandbox payment →</button></form>}
- {hold&&<section className="notice"><h3>Sandbox checkout</h3><p>Hold expires {when(hold.expiresAt)}. No real charge or pickup.</p><div id="puna-card"/><button className="btn checkout" disabled={!cardReady||busy} onClick={pay}>{busy?'Verifying payment…':'Pay '+money(hold.totalCents)+' in Sandbox'}</button><p className="demo-caption">If the response is uncertain, do not retry payment. Your order will be reconciled.</p><a href={'/receipt#'+hold.id+'.'+accessKey}>Check this order securely</a></section>}
+ {hold&&<section className="notice"><h3>Sandbox checkout</h3><p>Hold expires {when(hold.expiresAt)}. No real charge or pickup.</p><div id="puna-card"/><button className="btn checkout" disabled={!cardReady||busy||paymentPending} onClick={pay}>{busy?'Verifying payment…':'Pay '+money(hold.totalCents)+' in Sandbox'}</button><p className="demo-caption">If the response is uncertain, do not retry payment. Your order will be reconciled.</p><a href={'/receipt#'+hold.id+'.'+accessKey}>Check this order securely</a></section>}
  {config.mode==='disabled'&&<p className="notice">Online ordering is not open. Sandbox payment, stock and pickup schedules must be verified first.</p>}
  </>}{error&&<p className="notice" role="alert">{error}</p>}</div>;
  return <div className="customer"><a className="skip btn" href="#main">Skip to content</a><div className="topline"><strong>TRUCK PICKUP ONLY</strong><span className="dot">•</span><span>Staging · No real orders</span><span className="dot">•</span><span className="long">Pay online before pickup</span></div>

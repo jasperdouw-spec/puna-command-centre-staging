@@ -7,6 +7,7 @@ import http from 'node:http';
 import mysql from 'mysql2/promise';
 import {chromium} from 'playwright';
 import {runCommerceChecks} from './commerce-integration.mjs';
+import {runRecordChecks} from './records-integration.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS,'true','Synthetic integration suite is CI-only');
 assert.equal(process.env.DB_HOST,'127.0.0.1');
@@ -20,9 +21,9 @@ const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100',PUNA_CHECKOUT_MODE:'square-sa
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
  console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
-function request(path,{method='GET',body,cookie,originHeader=origin}={}){
+function request(path,{method='GET',body,cookie,originHeader=origin,extraHeaders={}}={}){
  return new Promise((resolve,reject)=>{
-  const headers={};if(cookie)headers.cookie=cookie;if(originHeader!==null)headers.origin=originHeader;
+  const headers={...extraHeaders};if(cookie)headers.cookie=cookie;if(originHeader!==null)headers.origin=originHeader;
   const payload=body===undefined?undefined:JSON.stringify(body);
   if(payload){headers['content-type']='application/json';headers['content-length']=Buffer.byteLength(payload)}
   const r=https.request(origin+path,{method,headers,rejectUnauthorized:false},res=>{let text='';res.on('data',d=>text+=d);res.on('end',()=>{let data;try{data=JSON.parse(text)}catch{data=text}resolve({status:res.statusCode,data,headers:res.headers})})});r.on('error',reject);r.end(payload);
@@ -196,6 +197,7 @@ try{
   const row=(await db.query("SELECT a.actor_id,u.role FROM audit_log a JOIN users u ON a.actor_id=u.id WHERE a.action='status:Preparing'"))[0][0];assert.equal(row.role,'staff');
  });
  await runCommerceChecks({db,request,check,cookie,staffCookie});
+ await runRecordChecks({db,request,check,cookie,staffCookie});
  browser=await chromium.launch();
  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
  await context.route('**/*',route=>{const url=new URL(route.request().url());return url.hostname==='localhost'?route.continue():route.abort()});
@@ -242,8 +244,8 @@ try{
   await wp.getByRole('button',{name:'Sign out',exact:true}).click();await wp.waitForURL('**/sign-in');await wp.goto(origin+'/food-truck');await wp.waitForURL('**/sign-in');assert.equal((await request('/api/truck',{cookie:staffCookie})).status,200);
   await worker.close();
  });
- await check('customer bag persists without placing unpaid orders',async()=>{
-  const before=await count('test_orders');await page.goto(origin+'/');await page.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await page.goto(origin+'/cart');await page.getByRole('heading',{name:'Your bag',exact:true}).waitFor();await page.reload();await page.getByRole('heading',{name:'Synthetic browser edit',exact:true}).waitFor();assert.equal(await count('test_orders'),before);assert.equal(await count('pickup_orders'),0);assert.equal(await page.getByRole('button',{name:'Place test order',exact:true}).count(),0);
+ await check('customer bag persists without placing unpaid orders',async()=>{const beforeOrders=await count('pickup_orders');
+  const before=await count('test_orders');await page.goto(origin+'/');await page.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await page.goto(origin+'/cart');await page.getByRole('heading',{name:'Your bag',exact:true}).waitFor();await page.reload();await page.getByRole('heading',{name:'Synthetic browser edit',exact:true}).waitFor();assert.equal(await count('test_orders'),before);assert.equal(await count('pickup_orders'),beforeOrders);assert.equal(await page.getByRole('button',{name:'Place test order',exact:true}).count(),0);
  });
  await check('public design, artwork and navigation render on desktop and mobile with synthetic catalogue',async()=>{
   // Synthetic records only; match the preserved layout's five fresh and three frozen cards.

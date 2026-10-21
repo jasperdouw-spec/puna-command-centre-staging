@@ -29,7 +29,7 @@ export async function verifyGoogleToken(token:string,nonceHash:string,now:number
  if(!response.ok)throw new CommerceError('IDENTITY_PROVIDER_UNAVAILABLE',503);
  const jwks=await response.json(),key=jwks.keys?.find((k:{kid:string})=>k.kid===header.kid);
  if(!key||!verify('RSA-SHA256',Buffer.from(parts[0]+'.'+parts[1]),createPublicKey({key,format:'jwk'}),Buffer.from(parts[2],'base64url')))throw new CommerceError('INVALID_IDENTITY',403);
- if(!['https://accounts.google.com','accounts.google.com'].includes(claims.iss)||claims.aud!==process.env.GOOGLE_CLIENT_ID||!Number.isFinite(claims.exp)||claims.exp*1000<=now||claims.iat*1000>now+30000||typeof claims.sub!=='string'||!claims.sub||claims.sub.length>255||claims.email_verified!==true||typeof claims.email!=='string'||digest(claims.nonce||'')!==nonceHash)throw new CommerceError('INVALID_IDENTITY',403);
+ if(!['https://accounts.google.com','accounts.google.com'].includes(claims.iss)||claims.aud!==process.env.GOOGLE_CLIENT_ID||!Number.isFinite(claims.exp)||claims.exp*1000<=now||!Number.isFinite(claims.iat)||claims.iat*1000>now+30000||typeof claims.sub!=='string'||!claims.sub||claims.sub.length>255||claims.email_verified!==true||typeof claims.email!=='string'||claims.email.length>254||typeof claims.nonce!=='string'||digest(claims.nonce||'')!==nonceHash)throw new CommerceError('INVALID_IDENTITY',403);
  return claims;
 }
 export async function finishGoogle(code:string,state:string){

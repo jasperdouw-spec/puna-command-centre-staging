@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {randomUUID,randomBytes,createHash} from 'node:crypto';
+import {randomUUID,randomBytes,createHash,createHmac} from 'node:crypto';
 export async function runCommerceChecks({db,request,check,cookie,staffCookie}){
  const post=(path,body,who=cookie)=>request(path,{method:'POST',body,cookie:who});
  const operations=body=>post('/api/operations',body);
@@ -9,7 +9,7 @@ export async function runCommerceChecks({db,request,check,cookie,staffCookie}){
  await db.execute("INSERT INTO commerce_products(product_id,canonical_id,category,publication,price_confirmed,ingredients_confirmed,tax_rules,deposit_cents,oven_units,packing_seconds) VALUES('commerce-fixture','synthetic-checkout','empanada','staging',1,1,?,0,1,0)",[JSON.stringify([{name:'Synthetic tax',basis_points:500}])]);
  await db.execute("INSERT INTO inventory_balances(product_id,location,stage,physical_units,known) VALUES('commerce-fixture','truck','frozen',200,1)");
  const batch=async(offset=120)=>{const id=randomUUID();await db.execute("INSERT INTO service_batches(id,configuration_id,bake_at,cutoff_at,pickup_at,pickup_until,oven_capacity,packing_capacity_seconds) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL ? MINUTE),DATE_ADD(UTC_TIMESTAMP(),INTERVAL ? MINUTE),DATE_ADD(UTC_TIMESTAMP(),INTERVAL ? MINUTE),DATE_ADD(UTC_TIMESTAMP(),INTERVAL ? MINUTE),20,0)",[id,capacity.insertId,offset,offset,offset+30,offset+40]);return id};
- let n=120;const hold=async(quantity=1,batchId)=>{const body={action:'reserve',checkoutKey:randomUUID(),accessKey:randomBytes(32).toString('hex'),batchId:batchId||await batch(n+=60),cart:cart(quantity),name:'Synthetic pickup',email:'pickup@example.test'};const result=await post('/api/checkout',body,undefined);return {body,result};};
+ let n=120;const hold=async(quantity=1,batchId)=>{const body={action:'reserve',checkoutKey:randomUUID(),accessKey:randomBytes(32).toString('hex'),batchId:batchId||await batch(n+=60),cart:cart(quantity),expectedTotal:quantity*840,name:'Synthetic pickup',email:'pickup@example.test'};const result=await post('/api/checkout',body,undefined);return {body,result};};
  const pay=(h,token='synthetic-success')=>post('/api/checkout',{action:'pay',id:h.result.data.id,accessKey:h.body.accessKey,sourceToken:token},undefined);
  await check('checkout origin and total tampering are denied',async()=>{assert.equal((await request('/api/checkout',{method:'POST',body:{action:'quote',cart:cart(1)},originHeader:null})).status,403);assert.equal((await post('/api/checkout',{action:'quote',cart:cart(1),total:1})).status,400);assert.equal((await post('/api/checkout',{action:'quote',cart:[{id:'commerce-fixture',quantity:1.5}]})).status,400)});
  await check('unknown stock and unverified product taxes block checkout',async()=>{await db.execute("UPDATE inventory_balances SET known=0 WHERE product_id='commerce-fixture'");assert.equal((await post('/api/checkout',{action:'quote',cart:cart(1)})).status,409);await db.execute("UPDATE inventory_balances SET known=1 WHERE product_id='commerce-fixture'");await db.execute("UPDATE commerce_products SET tax_rules=NULL WHERE product_id='commerce-fixture'");assert.equal((await post('/api/checkout',{action:'quote',cart:cart(1)})).status,409);await db.execute("UPDATE commerce_products SET tax_rules=? WHERE product_id='commerce-fixture'",[JSON.stringify([{name:'Synthetic tax',basis_points:500}])]);});
@@ -32,6 +32,40 @@ export async function runCommerceChecks({db,request,check,cookie,staffCookie}){
  await check('new checkout audit failure rolls all reservations back',async()=>{await db.query("CREATE TRIGGER synthetic_hold_audit_failure BEFORE INSERT ON audit_log FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic failure'");try{assert.equal((await hold(1)).result.status,503)}finally{await db.query('DROP TRIGGER synthetic_hold_audit_failure')}});
  await check('Google unconfigured and uninvited access stay closed',async()=>{assert.equal((await request('/api/google')).data.configured,false);assert.equal((await post('/api/google',{})).status,503);assert.equal((await post('/api/team',{action:'invite',email:'nobody@example.test',role:'owner'},staffCookie)).status,403)});
  await check('workspace preference is per-owner and does not change permissions',async()=>{assert.equal((await request('/api/preferences',{method:'PATCH',cookie,body:{view:'classic'}})).status,200);assert.equal((await request('/api/preferences',{cookie})).data.view,'classic');assert.equal((await request('/api/products',{cookie:staffCookie})).status,403);await request('/api/preferences',{method:'PATCH',cookie,body:{view:'orbital'}})});
+
+ const jobs=()=>request('/api/jobs',{method:'POST',extraHeaders:{authorization:'Bearer synthetic-ci-job-token-never-use-on-hosting'}});
+ await check('durable job reconciles captured payment after lost response without a second charge',async()=>{
+  const h=await hold(1);assert.equal((await pay(h,'synthetic-lost-response')).status,503);
+  assert.equal((await request('/api/jobs',{method:'POST'})).status,403);assert.equal((await jobs()).status,200);
+  const [r]=await db.execute('SELECT payment_status,hold_status FROM pickup_orders WHERE id=?',[h.result.data.id]);assert.equal(r[0].payment_status,'paid');assert.equal(r[0].hold_status,'committed');
+  await jobs();const [a]=await db.execute("SELECT COUNT(*) n FROM audit_log WHERE action='payment:captured' AND entity_id=?",[h.result.data.id]);assert.equal(Number(a[0].n),1);
+ });
+ await check('capture reconciled after cutoff becomes an exception and stays out of kitchen queue',async()=>{
+  const h=await hold(1);await pay(h,'synthetic-lost-response');await db.execute('UPDATE service_batches SET cutoff_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND) WHERE id=?',[h.body.batchId]);await jobs();
+  const [r]=await db.execute('SELECT payment_status,order_status FROM pickup_orders WHERE id=?',[h.result.data.id]);assert.equal(r[0].payment_status,'paid');assert.equal(r[0].order_status,'exception');
+  const q=await request('/api/operations',{cookie:staffCookie});assert.equal(q.data.orders.some(o=>o.id===h.result.data.id),false);
+ });
+ await check('signed duplicate and stale webhooks reconcile provider truth while invalid signatures are denied',async()=>{
+  const h=await hold(1);await pay(h);const [r]=await db.execute('SELECT square_payment_id,square_order_id FROM pickup_orders WHERE id=?',[h.result.data.id]);
+  const event={event_id:randomUUID(),type:'payment.updated',data:{id:r[0].square_payment_id,object:{payment:{order_id:r[0].square_order_id,status:'FAILED'}}}};
+  const sig=createHmac('sha256','synthetic-webhook-only').update('https://127.0.0.1:3443/api/square/webhook'+JSON.stringify(event)).digest('base64');
+  assert.equal((await request('/api/square/webhook',{method:'POST',body:event})).status,403);
+  const opts={method:'POST',body:event,extraHeaders:{'x-square-hmacsha256-signature':sig}};
+  assert.equal((await request('/api/square/webhook',opts)).status,200);assert.equal((await request('/api/square/webhook',opts)).data.duplicate,true);
+  await jobs();const [status]=await db.execute('SELECT payment_status FROM pickup_orders WHERE id=?',[h.result.data.id]);assert.equal(status[0].payment_status,'paid');
+ });
+ await check('owner-requested synthetic Sandbox refund never automatically restocks food',async()=>{
+  const h=await hold(1);await pay(h);const [before]=await db.query("SELECT physical_units,committed_units FROM inventory_balances WHERE product_id='commerce-fixture' AND location='truck' AND stage='frozen'");
+  assert.equal((await operations({action:'refund',id:h.result.data.id,amount:840,reason:'Synthetic owner-approved cancellation'})).status,200);await jobs();
+  const [r]=await db.execute('SELECT refund_status,order_status FROM pickup_orders WHERE id=?',[h.result.data.id]);assert.equal(r[0].refund_status,'refunded');assert.equal(r[0].order_status,'cancelled');
+  const [after]=await db.query("SELECT physical_units,committed_units FROM inventory_balances WHERE product_id='commerce-fixture' AND location='truck' AND stage='frozen'");assert.equal(after[0].physical_units,before[0].physical_units);assert.equal(after[0].committed_units,before[0].committed_units);
+ });
+ await check('payment capture with local audit failure is recovered by durable reconciliation',async()=>{
+  const h=await hold(1);await db.query("CREATE TRIGGER synthetic_capture_audit_failure BEFORE INSERT ON audit_log FOR EACH ROW BEGIN IF NEW.action='payment:captured' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic capture commit failure'; END IF; END");
+  try{assert.equal((await pay(h)).status,503)}finally{await db.query('DROP TRIGGER synthetic_capture_audit_failure')}
+  await jobs();const [r]=await db.execute('SELECT payment_status FROM pickup_orders WHERE id=?',[h.result.data.id]);assert.equal(r[0].payment_status,'paid');
+ });
+
  // Retain financial records for later synthetic reports while hiding this fixture from visual catalogue review.
  await db.execute("UPDATE products SET kind='frozen' WHERE id='commerce-fixture'");
 }

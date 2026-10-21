@@ -9,7 +9,7 @@ export const runtime='nodejs';
 const key=z.string().regex(/^[a-f0-9]{64}$/),id=z.string().uuid();
 const payload=z.discriminatedUnion('action',[
  z.object({action:z.literal('quote'),cart:cartInput}).strict(),
- z.object({action:z.literal('reserve'),checkoutKey:id,accessKey:key,batchId:id,cart:cartInput,name:z.string().trim().min(1).max(80),email:z.string().email().max(254)}).strict(),
+ z.object({action:z.literal('reserve'),checkoutKey:id,accessKey:key,batchId:id,cart:cartInput,expectedTotal:z.number().int().nonnegative(),name:z.string().trim().min(1).max(80),email:z.string().email().max(254)}).strict(),
  z.object({action:z.literal('pay'),id,accessKey:key,sourceToken:z.string().min(1).max(500)}).strict(),
  z.object({action:z.literal('receipt'),id,accessKey:key}).strict()
 ]);
