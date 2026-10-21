@@ -11,3 +11,5 @@ input:not([type=checkbox]),textarea{display:block;width:100%;margin:7px 0 14px;b
 
 .workspace-theme .classic-nav{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0}.workspace-theme .orbital-stage[hidden]{display:none}.workspace-theme .ops-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.workspace-theme .table-scroll{overflow:auto}.workspace-theme table{width:100%;border-collapse:collapse}.workspace-theme td,.workspace-theme th{text-align:left;padding:12px;border-bottom:1px solid #59452a}.workspace-theme select{max-width:100%;padding:10px;background:#20180f;color:#fff4e4;border:1px solid #806d4c}.workspace-theme input{min-width:0}.operations-panel{margin-top:30px}
 .workspace-theme .ops-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.workspace-theme label{display:block;margin:12px 0}
+
+.orbital-stage[hidden]{display:none!important}

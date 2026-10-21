@@ -34,7 +34,7 @@ export async function verifyGoogleToken(token:string,nonceHash:string,now:number
 }
 export async function finishGoogle(code:string,state:string){
  if(!googleConfigured())throw new CommerceError('GOOGLE_NOT_CONFIGURED',503);
- const jar=await cookies(),stored=jar.get(cookie)?.value;jar.delete(cookie);
+ const jar=await cookies(),stored=jar.get(cookie)?.value;jar.set(cookie,'',{path:'/api/google',maxAge:0,secure:true,httpOnly:true,sameSite:'lax'});
  if(!stored||stored!==state||!/^[a-f0-9]{64}$/.test(state))throw new CommerceError('INVALID_IDENTITY_STATE',403);
  const challenge=await transaction(async(c,now)=>{const [r]=await c.execute<RowDataPacket[]>('SELECT * FROM identity_challenges WHERE state_hash=? AND expires_at>? AND consumed=0 FOR UPDATE',[digest(state),sqlDate(now)]);if(!r[0])throw new CommerceError('IDENTITY_CHALLENGE_EXPIRED',403);await c.execute('UPDATE identity_challenges SET consumed=1 WHERE state_hash=?',[digest(state)]);return r[0];});
  const tokenResponse=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code,code_verifier:challenge.code_verifier,client_id:process.env.GOOGLE_CLIENT_ID!,client_secret:process.env.GOOGLE_CLIENT_SECRET!,redirect_uri:process.env.PUNA_ORIGIN+'/api/google/callback'}),signal:AbortSignal.timeout(15000),cache:'no-store'});

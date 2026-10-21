@@ -73,6 +73,7 @@ jobs:
       - name: Test actual standalone production application over local HTTPS
         env:
           PUNA_TEST_STANDALONE: 'true'
+          PUNA_CI_DB_CONTAINER: ${{ job.services.mariadb.id }}
         run: |
           cd "$RUNNER_TEMP/puna-candidate"
           timeout 240s node tests/integration.mjs

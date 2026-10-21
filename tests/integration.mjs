@@ -8,6 +8,7 @@ import mysql from 'mysql2/promise';
 import {chromium} from 'playwright';
 import {runCommerceChecks} from './commerce-integration.mjs';
 import {runRecordChecks} from './records-integration.mjs';
+import {verifySyntheticRecovery} from './recovery.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS,'true','Synthetic integration suite is CI-only');
 assert.equal(process.env.DB_HOST,'127.0.0.1');
@@ -39,7 +40,9 @@ let cookie;
 const product=async()=>{const r=await request('/api/products',{cookie});assert.equal(r.status,200);return r.data.products[0]};
 const patch=(p,extra={},options={})=>request('/api/products',{method:'PATCH',cookie,body:{id:p.id,version:p.version,name:p.name,description:p.description,price_cents:p.price_cents,available:!!p.available,...extra},...options});
 try{
- for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql','005_unified_staging.sql','006_commerce.sql'])await db.query(readFileSync('db/'+file,'utf8'));
+ for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql','005_unified_staging.sql'])await db.query(readFileSync('db/'+file,'utf8'));
+ execFileSync(process.execPath,['scripts/migrate.mjs','--apply'],{stdio:'pipe'});
+ await check('additive migration rerun preserves the schema',async()=>{const out=execFileSync(process.execPath,['scripts/migrate.mjs','--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)});
  await db.execute("INSERT INTO products(id,name,description,price_cents,kind) VALUES(?,?,?,?,?)",['synthetic-product','Synthetic product','Disposable integration fixture',1234,'fresh']);
  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout','/tmp/puna-ci-key.pem','-out','/tmp/puna-ci-cert.pem','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost'],{stdio:'ignore'});
  app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,BOOTSTRAP_TOKEN:token,STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
@@ -198,6 +201,30 @@ try{
  });
  await runCommerceChecks({db,request,check,cookie,staffCookie});
  await runRecordChecks({db,request,check,cookie,staffCookie});
+ app.kill('SIGTERM');await new Promise(resolve=>app.once('exit',resolve));
+ app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',GOOGLE_CLIENT_ID:'synthetic-google-client',GOOGLE_CLIENT_SECRET:'synthetic-not-real',PUNA_ORIGIN:'https://staging.punaempanadas.ca'},stdio:['ignore','pipe','pipe']});app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));
+ for(let i=0;i<60;i++){try{if((await request('/api/google')).data.configured)break}catch{}await new Promise(r=>setTimeout(r,500))}
+
+ await check('Google signed tokens still require an invitation or explicit existing-account linking',async()=>{
+ const begin=async(who,invitation,link=false)=>{const r=await request('/api/google',{method:'POST',cookie:who,body:{invitation,link}});assert.equal(r.status,200);const u=new URL(r.data.url);assert.equal(u.searchParams.get('scope'),'openid email profile');return {state:u.searchParams.get('state'),nonce:u.searchParams.get('nonce'),cookie:r.headers['set-cookie'][0].split(';')[0]};};
+ const finish=(b,claims,session)=>request('/api/google/callback?'+new URLSearchParams({state:b.state,code:Buffer.from(JSON.stringify({sub:'synthetic-google-owner',email:owner.email,nonce:b.nonce,...claims})).toString('base64url')}),{cookie:[session,b.cookie].filter(Boolean).join('; ')});
+ const denied=r=>{assert.equal(r.status,307);assert.match(r.headers.location,/\/sign-in\?identity=failed$/);assert.equal((r.headers['set-cookie']||[]).some(c=>c.startsWith('puna_session=')),false)};
+ const uninvited=await begin();denied(await finish(uninvited,{}));
+ for(const change of [{aud:'wrong-audience'},{iss:'https://evil.example.test'},{exp:1},{nonce:'wrong'},{email_verified:false},{iat:null}]){const b=await begin(cookie,undefined,true);denied(await finish(b,change,cookie));}
+ const link=await begin(cookie,undefined,true);assert.match((await finish(link,{},cookie)).headers.location,/\/workspace$/);denied(await finish(link,{},cookie));
+ const signedIn=await begin();assert.match((await finish(signedIn,{email:'changed-verified-email@example.test'})).headers.location,/\/workspace$/);
+ });
+ await check('invited Google worker gets restricted access and revocation invalidates the session',async()=>{
+ const invitation=await request('/api/team',{method:'POST',cookie,body:{action:'invite',email:'google-worker@example.test',role:'staff'}});assert.equal(invitation.status,200);
+ const token=new URLSearchParams(invitation.data.privateInvitation.split('#')[1]).get('invite');
+ const b=await request('/api/google',{method:'POST',body:{invitation:token}});const u=new URL(b.data.url),claims={sub:'synthetic-google-worker',email:'google-worker@example.test',name:'Synthetic invited worker',nonce:u.searchParams.get('nonce')};
+ const result=await request('/api/google/callback?'+new URLSearchParams({state:u.searchParams.get('state'),code:Buffer.from(JSON.stringify(claims)).toString('base64url')}),{cookie:b.headers['set-cookie'][0].split(';')[0]});assert.equal(result.status,307);
+ const session=result.headers['set-cookie'].find(c=>c.startsWith('puna_session=')).split(';')[0];
+ assert.equal((await request('/api/records',{cookie:session})).status,403);assert.equal((await request('/api/operations',{cookie:session})).status,200);
+ const [r]=await db.execute("SELECT id,role FROM users WHERE email='google-worker@example.test'");assert.equal(r[0].role,'staff');
+ assert.equal((await request('/api/team',{method:'POST',cookie,body:{action:'revoke',userId:r[0].id}})).status,200);assert.equal((await request('/api/operations',{cookie:session})).status,401);
+ });
+
  browser=await chromium.launch();
  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
  await context.route('**/*',route=>{const url=new URL(route.request().url());return url.hostname==='localhost'?route.continue():route.abort()});
@@ -248,7 +275,8 @@ try{
   const before=await count('test_orders');await page.goto(origin+'/');await page.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await page.goto(origin+'/cart');await page.getByRole('heading',{name:'Your bag',exact:true}).waitFor();await page.reload();await page.getByRole('heading',{name:'Synthetic browser edit',exact:true}).waitFor();assert.equal(await count('test_orders'),before);assert.equal(await count('pickup_orders'),beforeOrders);assert.equal(await page.getByRole('button',{name:'Place test order',exact:true}).count(),0);
  });
  await check('public design, artwork and navigation render on desktop and mobile with synthetic catalogue',async()=>{
-  // Synthetic records only; match the preserved layout's five fresh and three frozen cards.
+  // Synthetic records only; render five customer menu items and keep three frozen products internal.
+  await db.execute("UPDATE products SET price_cents=800 WHERE id='synthetic-product'");
   for(let i=1;i<=7;i++)await db.execute('INSERT INTO products(id,name,description,price_cents,kind,available) VALUES(?,?,?,?,?,?)',['fixture-'+i,'Synthetic menu '+i,'Disposable test description. No customer data.',i<=4?800:2500,i<=4?'fresh':'frozen',i<=4?1:0]);
   const publicContext=await browser.newContext({ignoreHTTPSErrors:true});await publicContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const pp=await publicContext.newPage();
   for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844]]){
@@ -256,8 +284,10 @@ try{
    const logo=pp.locator('.hero-visual img');await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth>0&&im.naturalHeight>0));
    assert.equal(await pp.locator('.product,.extra').count(),5);assert.equal(await pp.locator('#frozen').count(),0);assert.equal(await pp.getByText('Factory',{exact:true}).count(),0);
    assert.equal(await pp.locator('.customer').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(21, 19, 15)');
-   const copy=await pp.locator('.hero-copy').boundingBox(),art=await pp.locator('.hero-visual').boundingBox();assert.ok(device==='desktop'?art.x>copy.x+copy.width-2:art.y>=copy.y+copy.height-2);
+   const copy=await pp.locator('.hero-copy').boundingBox(),art=await pp.locator('.hero-visual').boundingBox();assert.ok(width>700?art.x>copy.x+copy.width-2:art.y>=copy.y+copy.height-2);
    assert.ok(await pp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+   await pp.emulateMedia({reducedMotion:'reduce'});await pp.getByRole('link',{name:'Skip to content',exact:true}).focus();assert.equal(await pp.getByRole('link',{name:'Skip to content',exact:true}).evaluate(e=>getComputedStyle(e).outlineStyle),'solid');assert.equal(await pp.locator('.product').first().evaluate(e=>getComputedStyle(e).transitionDuration),'0s');await pp.locator('h1').click();
+   for(const im of await pp.locator('main img').all()){await im.scrollIntoViewIfNeeded();await im.evaluate(e=>e.decode());assert.ok(await im.evaluate(e=>e.naturalWidth>0));assert.doesNotMatch(await im.getAttribute('src'),/18015083942193300|IG.?0016/);}await pp.evaluate(()=>window.scrollTo(0,0));
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-home.png',fullPage:true});
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-hero.png',fullPage:false});
    for(const [name,hash] of [['The menu','#menu'],['Our story','#story'],['Pickup','#pickup']]){await pp.getByRole('link',{name,exact:true}).click();assert.equal(new URL(pp.url()).hash,hash)}
@@ -266,7 +296,12 @@ try{
   await publicContext.close();
  });
  await page.goto(origin+'/workspace?view=edit');await page.getByLabel('Name',{exact:true}).first().waitFor();
- await check('capture six synthetic desktop/mobile review screenshots',async()=>{
+ await check('Classic and Orbital share the same editor and preserve an unsaved edit',async()=>{
+  const input=page.getByLabel('Name',{exact:true}).first(),before=await input.inputValue();await input.fill('Synthetic unsaved view change');
+  await page.getByLabel('Workspace view',{exact:true}).selectOption('classic');await page.getByRole('navigation',{name:'Classic workspace'}).waitFor();assert.equal(await input.inputValue(),'Synthetic unsaved view change');assert.equal(await page.getByRole('region',{name:'Puna orbital navigation'}).isVisible(),false);
+  await page.getByLabel('Workspace view',{exact:true}).selectOption('orbital');assert.equal(await input.inputValue(),'Synthetic unsaved view change');await input.fill(before);
+ });
+ await check('capture synthetic desktop, laptop, tablet and mobile review screenshots',async()=>{
   mkdirSync('test-artifacts/screenshots',{recursive:true});
   for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844]]){
    await page.setViewportSize({width,height});
@@ -289,7 +324,8 @@ try{
   await page.goto(origin+'/workspace');await page.waitForURL('**/sign-in');
  });
  await context.close();
- console.log('RESULT '+passed+' integration checks passed; synthetic data only; no deployment or backup restore.');
+ await check('isolated synthetic restore preserves counts, definitions, indexes and foreign keys',async()=>{console.log('Synthetic recovery evidence '+JSON.stringify(await verifySyntheticRecovery()))});
+ console.log('RESULT '+passed+' integration checks passed; synthetic data only; no deployment; private magenta restore remains blocked.');
 }finally{
  if(browser)await browser.close();
  if(proxy)await new Promise(resolve=>proxy.close(resolve));
