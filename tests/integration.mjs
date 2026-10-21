@@ -329,6 +329,7 @@ try{
   const payload=JSON.stringify({action:'import-products',rows:[row]});
   await box.fill(payload);await page.getByRole('button',{name:'Review import',exact:true}).click();
   await page.getByRole('heading',{name:'Review 1 catalogue records',exact:true}).waitFor();
+  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await page.setViewportSize({width,height});await page.getByRole('region',{name:'Source-tracked catalogue import',exact:true}).screenshot({path:'test-artifacts/screenshots/'+device+'-source-import.png'});}
   assert.equal(Number((await db.execute("SELECT COUNT(*) n FROM products WHERE id=?",[row.id]))[0][0].n),0);
   await page.getByRole('button',{name:'Import reviewed records as drafts',exact:true}).click();
   await page.getByRole('status').filter({hasText:'1 inserted, 0 updated, 0 unchanged'}).waitFor();
@@ -345,8 +346,8 @@ try{
  await check('imported product publishes separately and owner description edits remain protected',async()=>{
   const name='ZZZ Synthetic source import',id='zzz-browser-source';
   await page.getByText(name+' · draft',{exact:true}).click();
-  const panel=page.locator('details').filter({has:page.getByText(name+' · draft',{exact:true})});
-  await panel.getByLabel('Visibility',{exact:true}).selectOption('staging');
+  const panel=page.locator('details').filter({has:page.locator('summary').filter({hasText:name})});
+  await panel.getByLabel('Visibility').selectOption('staging');
   await panel.getByRole('button',{name:'Save checkout settings',exact:true}).click();
   await page.getByRole('status').filter({hasText:'Checkout settings saved'}).waitFor();
   assert.ok((await request('/api/puna')).data.products.some(p=>p.id===id&&p.price===800&&!p.available));
