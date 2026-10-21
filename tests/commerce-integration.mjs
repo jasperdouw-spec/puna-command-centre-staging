@@ -33,7 +33,7 @@ export async function runCommerceChecks({db,request,check,cookie,staffCookie}){
  await check('Google unconfigured and uninvited access stay closed',async()=>{assert.equal((await request('/api/google')).data.configured,false);assert.equal((await post('/api/google',{})).status,503);assert.equal((await post('/api/team',{action:'invite',email:'nobody@example.test',role:'owner'},staffCookie)).status,403)});
  await check('workspace preference is per-owner and does not change permissions',async()=>{assert.equal((await request('/api/preferences',{method:'PATCH',cookie,body:{view:'classic'}})).status,200);assert.equal((await request('/api/preferences',{cookie})).data.view,'classic');assert.equal((await request('/api/products',{cookie:staffCookie})).status,403);await request('/api/preferences',{method:'PATCH',cookie,body:{view:'orbital'}})});
 
- const jobs=()=>request('/api/jobs',{method:'POST',extraHeaders:{authorization:'Bearer synthetic-ci-job-token-never-use-on-hosting'}});
+ const jobs=async()=>{await db.query("UPDATE provider_jobs SET available_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND) WHERE status='pending'");return request('/api/jobs',{method:'POST',extraHeaders:{authorization:'Bearer synthetic-ci-job-token-never-use-on-hosting'}})};
  await check('durable job reconciles captured payment after lost response without a second charge',async()=>{
   const h=await hold(1);assert.equal((await pay(h,'synthetic-lost-response')).status,503);
   assert.equal((await request('/api/jobs',{method:'POST'})).status,403);assert.equal((await jobs()).status,200);
