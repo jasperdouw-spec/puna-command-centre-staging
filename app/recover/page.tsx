@@ -1,0 +1,6 @@
+'use client';
+import {useState} from 'react';
+export default function Recover(){
+ const [password,setPassword]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[done,setDone]=useState(false);
+ return <div className="workspace-theme"><main className="shell"><h1>Private password recovery</h1><p>Use the one-time link supplied privately by an authorized Puna owner. This does not change your role or Google identity.</p>{!done&&<form className="panel" onSubmit={async e=>{e.preventDefault();setBusy(true);try{const token=location.hash.slice(1);const r=await fetch('/api/recovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'redeem',token,password})});if(!r.ok)throw Error('This recovery link is unavailable or expired.');setPassword('');history.replaceState(null,'','/recover');setDone(true);setMessage('Password updated. Previous sessions have been signed out.')}catch(e){setMessage((e as Error).message)}finally{setBusy(false)}}}><label>New private password<input type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={busy}>Set new password</button></form>}{message&&<p role="status">{message}</p>}<a href="/sign-in">Return to sign-in</a></main></div>
+}

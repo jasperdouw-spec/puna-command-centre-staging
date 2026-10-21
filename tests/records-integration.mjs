@@ -39,4 +39,17 @@ export async function runRecordChecks({db,request,check,cookie,staffCookie}){
   await db.execute("INSERT INTO historical_sales(source_key,source_hash,sold_at,gross_cents,discount_cents,refund_cents,tax_cents,tip_cents,quantity,is_test,source_reference) VALUES('synthetic-report',?,UTC_TIMESTAMP(),800,0,0,40,0,1,1,'https://example.test/sales')",[hash('sale')]);
   const r=await request('/api/records',{cookie});assert.equal(Number(r.data.historical[0].records),0);
  });
+ await check('private recovery is owner-issued, one-time and revokes old sessions without changing role',async()=>{
+  const oldPassword='Synthetic-private-recovery-old-2026',newPassword='Synthetic-private-recovery-new-2026';
+  const created=await request('/api/accounts',{method:'POST',cookie,body:{email:'recovery@example.test',name:'Synthetic recovery worker',role:'staff',password:oldPassword}});assert.equal(created.status,201);
+  const [users]=await db.query("SELECT id FROM users WHERE email='recovery@example.test'");
+  assert.equal((await request('/api/recovery',{method:'POST',cookie:staffCookie,body:{action:'issue',userId:users[0].id}})).status,403);
+  const login=await request('/api/auth',{method:'POST',body:{action:'login',email:'recovery@example.test',password:oldPassword}});assert.equal(login.status,200);const oldSession=login.headers['set-cookie'][0].split(';')[0];
+  const issue=await request('/api/recovery',{method:'POST',cookie,body:{action:'issue',userId:users[0].id}});assert.equal(issue.status,200);const body={action:'redeem',token:issue.data.privateRecovery.split('#')[1],password:newPassword};
+  assert.equal((await request('/api/recovery',{method:'POST',body})).status,200);assert.equal((await request('/api/recovery',{method:'POST',body})).status,403);
+  assert.equal((await request('/api/operations',{cookie:oldSession})).status,401);
+  const signed=await request('/api/auth',{method:'POST',body:{action:'login',email:'recovery@example.test',password:newPassword}});assert.equal(signed.status,200);
+  assert.equal((await request('/api/records',{cookie:signed.headers['set-cookie'][0].split(';')[0]})).status,403);
+ });
+
 }

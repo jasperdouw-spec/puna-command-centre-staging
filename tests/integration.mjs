@@ -287,10 +287,10 @@ try{
    const copy=await pp.locator('.hero-copy').boundingBox(),art=await pp.locator('.hero-visual').boundingBox();assert.ok(width>700?art.x>copy.x+copy.width-2:art.y>=copy.y+copy.height-2);
    assert.ok(await pp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await pp.emulateMedia({reducedMotion:'reduce'});await pp.getByRole('link',{name:'Skip to content',exact:true}).focus();assert.equal(await pp.getByRole('link',{name:'Skip to content',exact:true}).evaluate(e=>getComputedStyle(e).outlineStyle),'solid');assert.equal(await pp.locator('.product').first().evaluate(e=>getComputedStyle(e).transitionDuration),'0s');await pp.locator('h1').click();
-   for(const im of await pp.locator('main img').all()){await im.scrollIntoViewIfNeeded();await im.evaluate(e=>e.decode());assert.ok(await im.evaluate(e=>e.naturalWidth>0));assert.doesNotMatch(await im.getAttribute('src'),/18015083942193300|IG.?0016/);}await pp.evaluate(()=>window.scrollTo(0,0));
+   for(const im of await pp.locator('main img').all()){const src=await im.getAttribute('src');assert.doesNotMatch(src,/18015083942193300|IG.?0016/);if(await im.isVisible()){await im.scrollIntoViewIfNeeded();await im.evaluate(e=>e.decode());assert.ok(await im.evaluate(e=>e.naturalWidth>0));}else{const asset=await pp.request.get(new URL(src,origin).toString());assert.equal(asset.status(),200);assert.match(asset.headers()['content-type'],/image/);}}await pp.evaluate(()=>window.scrollTo(0,0));
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-home.png',fullPage:true});
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-hero.png',fullPage:false});
-   for(const [name,hash] of [['The menu','#menu'],['Our story','#story'],['Pickup','#pickup']]){await pp.getByRole('link',{name,exact:true}).click();assert.equal(new URL(pp.url()).hash,hash)}
+   for(const [name,hash] of [['The menu','#menu'],['Our story','#story'],['Pickup','#pickup']]){await pp.getByRole('link',{name:width<=700&&name==='Our story'?'Meet Puna ↗':name,exact:true}).click();assert.equal(new URL(pp.url()).hash,hash)}
    await pp.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await pp.getByRole('button',{name:/Open bag/}).click();await pp.getByRole('dialog',{name:'Your bag'}).waitFor();assert.equal(await pp.getByRole('button',{name:'Place test order',exact:true}).count(),0);await pp.getByRole('button',{name:'Close cart',exact:true}).click();
   }
   await publicContext.close();

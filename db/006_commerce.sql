@@ -171,3 +171,5 @@ CREATE TABLE IF NOT EXISTS operations_notices (
 CREATE TABLE IF NOT EXISTS request_limits (
  id_hash CHAR(64) PRIMARY KEY, window_at DATETIME(3) NOT NULL, attempts INT UNSIGNED NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS password_recoveries (token_hash CHAR(64) PRIMARY KEY,user_id BIGINT UNSIGNED NOT NULL,issued_by BIGINT UNSIGNED NOT NULL,expires_at DATETIME(3) NOT NULL,used BOOLEAN NOT NULL DEFAULT FALSE,FOREIGN KEY(user_id) REFERENCES users(id),FOREIGN KEY(issued_by) REFERENCES users(id),INDEX(user_id,expires_at));
