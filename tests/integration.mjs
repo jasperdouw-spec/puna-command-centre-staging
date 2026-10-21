@@ -318,6 +318,51 @@ try{
   }
   writeFileSync('test-artifacts/screenshots/commit.txt',process.env.GITHUB_SHA+'\n');
  });
+
+ await check('owner import screen previews, imports drafts and refreshes both editors',async()=>{
+  await page.goto(origin+'/workspace?view=edit');
+  await page.getByText('Import source-tracked catalogue',{exact:true}).click();
+  const box=page.getByLabel('Reviewed catalogue package',{exact:true});
+  await box.fill('not valid JSON');await page.getByRole('button',{name:'Review import',exact:true}).click();
+  await page.getByRole('alert').filter({hasText:'not valid JSON'}).waitFor();
+  const row={id:'zzz-browser-source',canonicalId:'synthetic:browser-source',sourceKey:'synthetic:browser-source',sourceReference:'https://example.test/catalogue#historical-prices-through-2026-09-16',sourceHash:'a'.repeat(64),name:'ZZZ Synthetic source import',description:'Synthetic imported description only.',priceCents:800,kind:'fresh',category:'empanada',priceConfirmed:true};
+  const payload=JSON.stringify({action:'import-products',rows:[row]});
+  await box.fill(payload);await page.getByRole('button',{name:'Review import',exact:true}).click();
+  await page.getByRole('heading',{name:'Review 1 catalogue records',exact:true}).waitFor();
+  assert.equal(Number((await db.execute("SELECT COUNT(*) n FROM products WHERE id=?",[row.id]))[0][0].n),0);
+  await page.getByRole('button',{name:'Import reviewed records as drafts',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'1 inserted, 0 updated, 0 unchanged'}).waitFor();
+  const [saved]=await db.execute('SELECT p.available,p.price_cents,p.source_status,m.* FROM products p JOIN commerce_products m ON m.product_id=p.id WHERE p.id=?',[row.id]);
+  assert.equal(saved[0].publication,'draft');assert.equal(saved[0].price_confirmed,1);assert.equal(saved[0].ingredients_confirmed,0);assert.equal(saved[0].available,0);assert.equal(saved[0].source_status,'initial');assert.equal(saved[0].tax_rules,null);assert.equal(saved[0].deposit_cents,null);assert.equal(saved[0].packing_seconds,null);
+  assert.equal(Number((await db.execute('SELECT COUNT(*) n FROM inventory_balances WHERE product_id=?',[row.id]))[0][0].n),0);
+  await page.getByRole('group',{name:row.name,exact:true}).getByLabel('Description',{exact:true}).waitFor();
+  await page.getByText(row.name+' · draft',{exact:true}).waitFor();
+  assert.ok(!(await request('/api/puna')).data.products.some(p=>p.id===row.id));
+  await page.getByRole('button',{name:'Review import',exact:true}).click();await page.getByRole('button',{name:'Import reviewed records as drafts',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'0 inserted, 0 updated, 1 unchanged'}).waitFor();
+  assert.equal(Number((await db.execute("SELECT COUNT(*) n FROM audit_log WHERE entity_id=? AND action='source:import'",[row.id]))[0][0].n),1);
+ });
+ await check('imported product publishes separately and owner description edits remain protected',async()=>{
+  const name='ZZZ Synthetic source import',id='zzz-browser-source';
+  await page.getByText(name+' · draft',{exact:true}).click();
+  const panel=page.locator('details').filter({has:page.getByText(name+' · draft',{exact:true})});
+  await panel.getByLabel('Visibility',{exact:true}).selectOption('staging');
+  await panel.getByRole('button',{name:'Save checkout settings',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'Checkout settings saved'}).waitFor();
+  assert.ok((await request('/api/puna')).data.products.some(p=>p.id===id&&p.price===800&&!p.available));
+  const group=page.getByRole('group',{name,exact:true});
+  await group.getByLabel('Description',{exact:true}).fill('Synthetic owner edit retained.');
+  await group.getByRole('button',{name:'Save product',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'Product saved'}).waitFor();
+  const row={id,canonicalId:'synthetic:browser-source',sourceKey:'synthetic:browser-source',sourceReference:'https://example.test/catalogue',sourceHash:'b'.repeat(64),name,description:'Conflicting replacement',priceCents:800,kind:'fresh',category:'empanada',priceConfirmed:true};
+  await page.getByLabel('Reviewed catalogue package',{exact:true}).fill(JSON.stringify({action:'import-products',rows:[row]}));await page.getByRole('button',{name:'Review import',exact:true}).click();await page.getByRole('button',{name:'Import reviewed records as drafts',exact:true}).click();
+  await page.getByRole('alert').filter({hasText:'OWNER_EDIT_CONFLICT'}).waitFor();
+  assert.equal((await db.execute('SELECT description FROM products WHERE id=?',[id]))[0][0].description,'Synthetic owner edit retained.');
+  assert.equal(Number((await db.execute("SELECT COUNT(*) n FROM audit_log WHERE entity_id=? AND action='source:import'",[id]))[0][0].n),1);
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ });
+
  await check('browser orbital home and logout work',async()=>{
   await page.getByRole('button',{name:'Puna Home',exact:true}).click();await page.getByRole('img',{name:'Puna official logo'}).waitFor();
   await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.waitForURL('**/sign-in');
