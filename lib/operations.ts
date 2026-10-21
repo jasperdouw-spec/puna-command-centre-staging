@@ -13,8 +13,8 @@ async function movement(c:PoolConnection,input:{key:string;id:string;quantity:nu
 }
 export async function stockChange(actor:number,p:{key:string;id:string;location:'truck'|'factory';stage:string;quantity:number;version:number;kind:'opening'|'receipt'|'waste'|'adjustment'|'transfer';reason:string;toLocation?:'truck'|'factory'}){
  return transaction(async(c,now)=>{
-  const [old]=await c.execute<RowDataPacket[]>('SELECT product_id,quantity,kind FROM inventory_movements WHERE operation_key=?',[p.key]);
-  if(old.length){if(old[0].product_id!==p.id||Number(old[0].quantity)!==p.quantity||old[0].kind!==p.kind)throw new CommerceError('OPERATION_CONFLICT');return {duplicate:true};}
+  const [old]=await c.execute<RowDataPacket[]>('SELECT product_id,quantity,kind,from_location,from_stage,to_location,reason FROM inventory_movements WHERE operation_key=?',[p.key]);
+  if(old.length){if(old[0].product_id!==p.id||Number(old[0].quantity)!==p.quantity||old[0].kind!==p.kind||old[0].from_location!==p.location||old[0].from_stage!==p.stage||(old[0].to_location||undefined)!==p.toLocation||old[0].reason!==p.reason)throw new CommerceError('OPERATION_CONFLICT');return {duplicate:true};}
   const b=await balance(c,p.id,p.location,p.stage);if(Number(b.version)!==p.version)throw new CommerceError('STOCK_CHANGED');
   if(!b.known&&p.kind!=='opening')throw new CommerceError('STOCK_UNVERIFIED');
   if(p.kind==='opening'&&b.known)throw new CommerceError('OPENING_ALREADY_RECORDED');

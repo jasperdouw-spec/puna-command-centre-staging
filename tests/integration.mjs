@@ -16,7 +16,7 @@ const db=await mysql.createConnection({host:'127.0.0.1',port:Number(process.env.
 for(const [file,expected] of Object.entries(JSON.parse(readFileSync('tests/preserved-assets.json','utf8'))))assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),expected,'Preserved public asset '+file);
 const origin='https://localhost:3443';
 const appArgs=['--import', './tests/provider-fixture.mjs',...(process.env.PUNA_TEST_STANDALONE==='true'?['.next/standalone/server.js']:['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'])];
-const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100',PUNA_CHECKOUT_MODE:'square-sandbox',SQUARE_SANDBOX_ACCESS_TOKEN:'synthetic-not-a-provider-secret',SQUARE_SANDBOX_LOCATION_ID:'synthetic-location',SQUARE_SANDBOX_APPLICATION_ID:'synthetic-application',SQUARE_WEBHOOK_SIGNATURE_KEY:'synthetic-webhook-only',PUNA_JOB_TOKEN:'synthetic-ci-job-token-never-use-on-hosting'};
+const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100',PUNA_CHECKOUT_MODE:'square-sandbox',SQUARE_SANDBOX_ACCESS_TOKEN:'synthetic-not-a-provider-secret',SQUARE_SANDBOX_LOCATION_ID:'synthetic-location',SQUARE_SANDBOX_APPLICATION_ID:'synthetic-application',SQUARE_WEBHOOK_SIGNATURE_KEY:'synthetic-webhook-only',SQUARE_WEBHOOK_URL:'https://127.0.0.1:3443/api/square/webhook',PUNA_JOB_TOKEN:'synthetic-ci-job-token-never-use-on-hosting'};
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
  console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
@@ -217,7 +217,7 @@ try{
 
  await check('browser edits staging website settings and sees them on the public homepage',async()=>{
   await page.goto(origin+'/workspace?view=content');await page.getByLabel('Opening hours',{exact:true}).fill('Synthetic test hours only');
-  await page.getByRole('button',{name:'Save website details',exact:true}).click();await page.getByRole('status').waitFor();
+  await page.getByRole('button',{name:'Publish to staging',exact:true}).click();await page.getByRole('status').waitFor();
   await page.goto(origin+'/');await page.getByText('Synthetic test hours only',{exact:true}).waitFor();
   assert.equal(await page.locator('.menu-card h3').first().textContent(),'Synthetic browser edit');
   assert.equal(await page.getByRole('link',{name:'Workspace',exact:true}).count(),1);
@@ -238,7 +238,7 @@ try{
   await wp.getByRole('heading',{name:'Truck preparation & pickup',exact:true}).waitFor();assert.equal(await wp.getByText('Synthetic pickup',{exact:true}).count(),0);assert.equal(await wp.getByRole('button',{name:'Mark Ready',exact:true}).count(),0);
   await wp.goto(origin+'/workspace?view=staff');await wp.waitForURL('**/food-truck');
   mkdirSync('test-artifacts/screenshots',{recursive:true});
-  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await wp.setViewportSize({width,height});assert.ok(await wp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await wp.screenshot({path:'test-artifacts/screenshots/'+device+'-worker.png',fullPage:true})}
+  for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844]]){await wp.setViewportSize({width,height});assert.ok(await wp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await wp.screenshot({path:'test-artifacts/screenshots/'+device+'-worker.png',fullPage:true})}
   await wp.getByRole('button',{name:'Sign out',exact:true}).click();await wp.waitForURL('**/sign-in');await wp.goto(origin+'/food-truck');await wp.waitForURL('**/sign-in');assert.equal((await request('/api/truck',{cookie:staffCookie})).status,200);
   await worker.close();
  });
@@ -249,7 +249,7 @@ try{
   // Synthetic records only; match the preserved layout's five fresh and three frozen cards.
   for(let i=1;i<=7;i++)await db.execute('INSERT INTO products(id,name,description,price_cents,kind,available) VALUES(?,?,?,?,?,?)',['fixture-'+i,'Synthetic menu '+i,'Disposable test description. No customer data.',i<=4?800:2500,i<=4?'fresh':'frozen',i<=4?1:0]);
   const publicContext=await browser.newContext({ignoreHTTPSErrors:true});await publicContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const pp=await publicContext.newPage();
-  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
+  for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844]]){
    await pp.setViewportSize({width,height});await pp.goto(origin+'/');await pp.getByText('Synthetic test hours only',{exact:true}).waitFor();
    const logo=pp.locator('.hero-visual img');await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth>0&&im.naturalHeight>0));
    assert.equal(await pp.locator('.product,.extra').count(),5);assert.equal(await pp.locator('#frozen').count(),0);assert.equal(await pp.getByText('Factory',{exact:true}).count(),0);
@@ -266,7 +266,7 @@ try{
  await page.goto(origin+'/workspace?view=edit');await page.getByLabel('Name',{exact:true}).first().waitFor();
  await check('capture six synthetic desktop/mobile review screenshots',async()=>{
   mkdirSync('test-artifacts/screenshots',{recursive:true});
-  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){
+  for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844]]){
    await page.setViewportSize({width,height});
    await page.getByRole('button',{name:'Puna Home',exact:true}).click();
    await page.getByRole('img',{name:'Puna official logo'}).evaluate(im=>im.decode());

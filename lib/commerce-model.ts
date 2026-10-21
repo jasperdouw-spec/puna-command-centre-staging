@@ -43,7 +43,9 @@ export function localParts(time:number){const p=Object.fromEntries(localFormat.f
 export function localInstant(date:string,time:string){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time))throw new CommerceError('INVALID_LOCAL_TIME',400);
  const nominal=Date.parse(date+'T'+time+':00Z');if(!Number.isFinite(nominal))throw new CommerceError('INVALID_LOCAL_TIME',400);
- const matches=[7,8].map(h=>nominal+h*3600000).filter(ms=>localParts(ms)===date+'T'+time);
+ const offsets=new Set<number>();
+ for(let hours=-36;hours<=36;hours+=6){const probe=nominal+hours*3600000;offsets.add(Date.parse(localParts(probe)+':00Z')-probe);}
+ const matches=[...offsets].map(offset=>nominal-offset).filter(ms=>localParts(ms)===date+'T'+time);
  // Ambiguous fall-back and nonexistent spring-forward times require explicit corrected schedule.
  if(matches.length!==1)throw new CommerceError('AMBIGUOUS_OR_MISSING_LOCAL_TIME',400);return matches[0];
 }

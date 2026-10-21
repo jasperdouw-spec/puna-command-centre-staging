@@ -94,4 +94,4 @@ export async function orderAccess(c:PoolConnection,id:string,key:string,lock=fal
  const [rows]=await c.execute<RowDataPacket[]>('SELECT * FROM pickup_orders WHERE id=? AND receipt_hash=?'+(lock?' FOR UPDATE':''),[id,digest(key)]);
  if(!rows[0])throw new CommerceError('ORDER_NOT_FOUND',404);return rows[0];
 }
-export function commerceEnabled(){return process.env.PUNA_CHECKOUT_MODE==='square-sandbox'&&!!process.env.SQUARE_SANDBOX_ACCESS_TOKEN&&!!process.env.SQUARE_SANDBOX_LOCATION_ID&&!!process.env.SQUARE_SANDBOX_APPLICATION_ID&&!!process.env.SQUARE_WEBHOOK_SIGNATURE_KEY&&!!process.env.PUNA_JOB_TOKEN}
+export function commerceEnabled(){return process.env.PUNA_CHECKOUT_MODE==='square-sandbox'&&!!process.env.SQUARE_SANDBOX_ACCESS_TOKEN&&!!process.env.SQUARE_SANDBOX_LOCATION_ID&&!!process.env.SQUARE_SANDBOX_APPLICATION_ID&&!!process.env.SQUARE_WEBHOOK_SIGNATURE_KEY&&!!process.env.PUNA_JOB_TOKEN&&!!process.env.SQUARE_WEBHOOK_URL}

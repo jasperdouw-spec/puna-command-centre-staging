@@ -5,6 +5,7 @@ import WebsiteEditor from './website';
 import Accounts from './accounts';
 import Operations from './operations';
 import GoogleLink from './google-link';
+import Records from './records';
 const roots=['Sales','Orders','Production','Inventory','Financials','Marketing','Website','Food Truck','Staff','Settings','Feedback','Audit'];
 export default function OrbitalWorkspace(){
  const [view,setView]=useState<'orbital'|'classic'>('orbital');
@@ -20,5 +21,5 @@ export default function OrbitalWorkspace(){
  <button className="orbital-node orbital-core" aria-label={path.length===1?'Puna home':'Back to '+path[path.length-2]} style={{left:'50%',top:'50%'}} onClick={()=>navigate(path.length>1?path.slice(0,-1):['Puna'])}>{path.length===1?<img src="/puna-official-logo.svg" alt="Puna official logo" width="86" height="86"/>:<span>{current}</span>}</button>
  {children.map((name,i)=>{const angle=-Math.PI/2+2*Math.PI*i/children.length;return <button className="orbital-node" key={name} style={{left:(50+38*Math.cos(angle))+'%',top:(50+38*Math.sin(angle))+'%'}} onClick={()=>navigate([...path,name])}><span>{name}</span></button>})}
  </section>{view==='classic'&&<nav className="classic-nav" aria-label="Classic workspace">{['Overview',...roots].map(name=><button key={name} onClick={()=>navigate(name==='Overview'?['Puna']:['Puna',name])}>{name}</button>)}{current==='Website'&&['Products','Content'].map(name=><button key={name} onClick={()=>navigate(['Puna','Website',name])}>{name}</button>)}{current==='Products'&&<button onClick={()=>navigate(['Puna','Website','Products','Edit'])}>Edit</button>}</nav>}<div className="orbital-toolbar"><button disabled={path.length===1} onClick={()=>navigate(path.slice(0,-1))}>Back</button><button onClick={()=>navigate(['Puna'])}>Puna Home</button></div>
- {current==='Edit'?<ProductWorkspace/>:current==='Content'?<WebsiteEditor/>:current==='Staff'?<><Accounts/><GoogleLink/></>:current==='Puna'?<Operations section="Overview"/>:!children.length?<Operations section={current}/>:<p className="subtle">Choose a connected circle to explore.</p>}</>
+ {current==='Edit'?<ProductWorkspace/>:current==='Content'?<WebsiteEditor/>:current==='Staff'?<><Accounts/><GoogleLink/></>:['Production','Sales','Financials'].includes(current)?<Records section={current}/>:current==='Puna'?<Operations section="Overview"/>:!children.length?<Operations section={current}/>:<p className="subtle">Choose a connected circle to explore.</p>}</>
 }

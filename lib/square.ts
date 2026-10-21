@@ -98,8 +98,8 @@ export async function handleWebhook(raw:string,signature:string|null){
   const [old]=await c.execute<RowDataPacket[]>('SELECT body_hash FROM provider_events WHERE provider=? AND event_id=?',['square',e.event_id]);
   if(old.length){if(old[0].body_hash!==digest(raw))throw new CommerceError('EVENT_CONFLICT');return {duplicate:true};}
   await c.execute('INSERT INTO provider_events(provider,event_id,object_id,event_type,body_hash) VALUES(?,?,?,?,?)',['square',e.event_id,objectId,e.type,digest(raw)]);
-  const orderId=e.data?.object?.payment?.order_id;
-  const [orders]=await c.execute<RowDataPacket[]>('SELECT id FROM pickup_orders WHERE square_payment_id=? OR square_order_id=?',[objectId,typeof orderId==='string'?orderId:'']);
+  const orderId=e.data?.object?.payment?.order_id;const paymentId=e.data?.object?.refund?.payment_id;
+  const [orders]=await c.execute<RowDataPacket[]>('SELECT id FROM pickup_orders WHERE square_payment_id=? OR square_order_id=?',[typeof paymentId==='string'?paymentId:objectId,typeof orderId==='string'?orderId:'']);
   for(const o of orders)await c.execute("INSERT INTO provider_jobs(id,kind,order_id,available_at,operation_key) VALUES(?,'reconcile_payment',?,?,?)",[randomUUID(),o.id,sqlDate(now),'event:'+e.event_id+':'+o.id]);
   return {accepted:true};
  });
@@ -127,5 +127,5 @@ export async function processRefund(orderId:string){
   await audit(c,null,'refund:'+state,'pickup_order',orderId);
  });
  // Refunds never replenish food stock automatically.
- return {state:refund.status==='COMPLETED'?'done':'pending'};
+ return {state:['COMPLETED','FAILED','REJECTED'].includes(refund.status)?'done':'pending'};
 }

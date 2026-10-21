@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS recipe_versions (
 );
 CREATE TABLE IF NOT EXISTS production_runs (
  id CHAR(36) PRIMARY KEY, operation_key VARCHAR(150) NOT NULL UNIQUE,
- recipe_id CHAR(36) NOT NULL, output_units INT UNSIGNED NOT NULL,
+ recipe_id CHAR(36) NOT NULL, batch_count INT UNSIGNED NOT NULL, output_units INT UNSIGNED NOT NULL,
  waste_units INT UNSIGNED NOT NULL DEFAULT 0, actor_id BIGINT UNSIGNED NOT NULL,
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  FOREIGN KEY(recipe_id) REFERENCES recipe_versions(id), FOREIGN KEY(actor_id) REFERENCES users(id)
