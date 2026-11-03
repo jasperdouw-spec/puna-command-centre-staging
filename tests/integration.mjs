@@ -8,6 +8,7 @@ import mysql from 'mysql2/promise';
 import {chromium} from 'playwright';
 import {runCommerceChecks} from './commerce-integration.mjs';
 import {runRecordChecks} from './records-integration.mjs';
+import {runCustomerChecks} from './customers-integration.mjs';
 import {verifySyntheticRecovery} from './recovery.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS,'true','Synthetic integration suite is CI-only');
@@ -42,7 +43,19 @@ const patch=(p,extra={},options={})=>request('/api/products',{method:'PATCH',coo
 try{
  for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql','005_unified_staging.sql'])await db.query(readFileSync('db/'+file,'utf8'));
  execFileSync(process.execPath,['scripts/migrate.mjs','--apply'],{stdio:'pipe'});
- await check('additive migration rerun preserves the schema',async()=>{const out=execFileSync(process.execPath,['scripts/migrate.mjs','--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)});
+ execFileSync(process.execPath,['scripts/migrate.mjs','--migration=007_customer_notes','--apply'],{stdio:'pipe'});
+ await check('additive migration reruns preserve the schema',async()=>{for(const migration of ['006_commerce','007_customer_notes']){const out=execFileSync(process.execPath,['scripts/migrate.mjs','--migration='+migration,'--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)}});
+ await check('migration ledger cannot hide a missing expected table',async()=>{
+  const [before]=await db.query("SELECT checksum FROM schema_migrations WHERE id='007_customer_notes'");
+  await db.query('RENAME TABLE customer_notes TO synthetic_migration_customer_notes');
+  try{
+   assert.throws(()=>execFileSync(process.execPath,['scripts/migrate.mjs','--migration=007_customer_notes','--apply'],{encoding:'utf8',stdio:'pipe'}),error=>{
+    assert.notEqual(error.status,0);assert.match(String(error.stderr),/Migration ledger exists but expected tables are missing/);assert.match(String(error.stderr),/customer_notes/);assert.doesNotMatch(String(error.stdout),/already_applied/);return true;
+   });
+   const [tables]=await db.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME='customer_notes'",[process.env.DB_NAME]);assert.equal(tables.length,0,'A missing table must not be silently recreated');
+   const [after]=await db.query("SELECT checksum FROM schema_migrations WHERE id='007_customer_notes'");assert.deepEqual(after,before);
+  }finally{await db.query('RENAME TABLE synthetic_migration_customer_notes TO customer_notes')}
+ });
  await db.execute("INSERT INTO products(id,name,description,price_cents,kind) VALUES(?,?,?,?,?)",['synthetic-product','Synthetic product','Disposable integration fixture',1234,'fresh']);
  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout','/tmp/puna-ci-key.pem','-out','/tmp/puna-ci-cert.pem','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost'],{stdio:'ignore'});
  app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,BOOTSTRAP_TOKEN:token,STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
@@ -201,6 +214,18 @@ try{
  });
  await runCommerceChecks({db,request,check,cookie,staffCookie});
  await runRecordChecks({db,request,check,cookie,staffCookie});
+ await runCustomerChecks({db,request,check,cookie,staffCookie});
+ await check('owner order book separates Sandbox records and omits private receipt credentials',async()=>{
+  assert.equal((await request('/api/workspace')).status,401);
+  assert.equal((await request('/api/workspace',{cookie:staffCookie})).status,403);
+  const live=await request('/api/workspace',{cookie});assert.equal(live.status,200);assert.equal(live.data.scope,'live');assert.equal(live.data.orders.length,0);assert.equal(live.data.summary.activeOrders,0);
+  const sandbox=await request('/api/workspace?scope=sandbox&filter=all',{cookie});assert.equal(sandbox.status,200);
+  const expected=Number((await db.query('SELECT COUNT(*) n FROM pickup_orders WHERE is_test=1'))[0][0].n);
+  assert.equal(sandbox.data.total,expected);assert.ok(sandbox.data.orders.length>0);assert.ok(sandbox.data.orders.length<=25);
+  for(const order of sandbox.data.orders){assert.equal(Number(order.is_test),1);assert.ok(Array.isArray(order.items));for(const key of ['receipt_hash','checkout_key','request_hash','square_payment_id','square_order_id','payment_idempotency_key','contact_email'])assert.equal(key in order,false)}
+  const active=await request('/api/workspace?scope=sandbox&filter=active',{cookie});assert.ok(active.data.orders.every(o=>o.payment_status==='paid'&&o.refund_status==='none'&&o.order_status==='open'&&o.fulfilment_status!=='collected'));
+  for(const query of ['scope=unknown','page=0','page=1.5','filter=unknown','scope=live&scope=sandbox'])assert.equal((await request('/api/workspace?'+query,{cookie})).status,400);
+ });
  app.kill('SIGTERM');await new Promise(resolve=>app.once('exit',resolve));
  app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',GOOGLE_CLIENT_ID:'synthetic-google-client',GOOGLE_CLIENT_SECRET:'synthetic-not-real',PUNA_ORIGIN:'https://staging.punaempanadas.ca'},stdio:['ignore','pipe','pipe']});app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));
  for(let i=0;i<60;i++){try{if((await request('/api/google')).data.configured)break}catch{}await new Promise(r=>setTimeout(r,500))}
@@ -226,37 +251,122 @@ try{
  });
 
  browser=await chromium.launch();
+ mkdirSync('test-artifacts/screenshots',{recursive:true});
  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
  await context.route('**/*',route=>{const url=new URL(route.request().url());return url.hostname==='localhost'?route.continue():route.abort()});
  const page=await context.newPage();page.on('pageerror',e=>console.log('Browser error: '+e.message));
+ const navigateWorkspace=async(target,name)=>{
+  const nav=target.getByRole('navigation',{name:'Puna workspace',exact:true});
+  const button=nav.getByRole('button',{name,exact:true});
+  if(!await button.isVisible())await target.getByRole('button',{name:'Open workspace menu',exact:true}).click();
+  await button.click();
+ };
+ const openMenuItem=async(target,name)=>{
+  await target.getByRole('button',{name:'Edit '+name,exact:true}).click();
+  const editor=target.getByRole('dialog',{name:'Edit menu item',exact:true});
+  await editor.waitFor();return editor;
+ };
  await check('browser login and explicit product edit persist after refresh',async()=>{
   await page.goto(origin+'/sign-in');await page.getByLabel('Email',{exact:true}).fill(owner.email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.waitForURL('**/workspace');
-  const logo=page.getByRole('img',{name:'Puna official logo'});await logo.waitFor();assert.ok(await logo.evaluate(im=>im.complete&&im.naturalWidth>0));
-  await page.getByRole('button',{name:'Website',exact:true}).click();await page.getByRole('button',{name:'Products',exact:true}).click();await page.getByRole('button',{name:'Edit',exact:true}).click();
-  await page.getByLabel('Name',{exact:true}).first().fill('Synthetic browser edit');
+  const logo=page.getByRole('link',{name:'Puna website',exact:true}).locator('img');await logo.waitFor();await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth>0));
+  await navigateWorkspace(page,'Menu');
+  let editor=await openMenuItem(page,(await product()).name);
+  await editor.getByLabel('Name',{exact:true}).fill('Synthetic browser edit');
+  await editor.getByLabel('Price (CAD)',{exact:true}).fill('8.25');
   assert.notEqual((await product()).name,'Synthetic browser edit');
-  await page.getByRole('button',{name:'Save product',exact:true}).first().click();await page.getByRole('status').waitFor();await page.reload();await page.getByLabel('Name',{exact:true}).first().waitFor();
-  assert.equal(await page.getByLabel('Name',{exact:true}).first().inputValue(),'Synthetic browser edit');assert.equal((await product()).source_status,'initial');
-  await page.getByLabel('I confirm these product details',{exact:true}).first().check();await page.getByRole('button',{name:'Save product',exact:true}).first().click();await page.getByRole('status').waitFor();assert.equal((await product()).source_status,'confirmed');
+  await editor.getByRole('button',{name:'Save product',exact:true}).click();await page.getByRole('status').filter({hasText:'Product saved'}).waitFor();
+  assert.equal((await product()).price_cents,825);
+  await page.reload();editor=await openMenuItem(page,'Synthetic browser edit');
+  assert.equal(await editor.getByLabel('Name',{exact:true}).inputValue(),'Synthetic browser edit');assert.equal((await product()).source_status,'initial');
+  assert.equal(Number(await editor.getByLabel('Price (CAD)',{exact:true}).inputValue()),8.25);
+  await editor.getByLabel('I confirm these product details',{exact:true}).check();await editor.getByRole('button',{name:'Save product',exact:true}).click();await page.getByRole('status').filter({hasText:'Product saved'}).waitFor();assert.equal((await product()).source_status,'confirmed');
+  await editor.getByRole('button',{name:'Close menu item',exact:true}).click();
  });
  await check('mobile editor remains usable without horizontal overflow',async()=>{
-  await page.setViewportSize({width:390,height:844});await page.reload();await page.getByRole('button',{name:'Save product',exact:true}).first().waitFor();
-  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));assert.ok(await page.getByLabel('Name',{exact:true}).first().isVisible());
+  await page.setViewportSize({width:390,height:844});await page.reload();const editor=await openMenuItem(page,'Synthetic browser edit');
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));assert.ok(await editor.getByLabel('Name',{exact:true}).isVisible());
+  const box=await editor.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=390);
+  await editor.getByLabel('Name',{exact:true}).focus();await page.keyboard.press('Escape');await editor.waitFor({state:'hidden'});
+  assert.ok(await page.getByRole('button',{name:'Edit Synthetic browser edit',exact:true}).evaluate(e=>e===document.activeElement));
+ });
+ await check('order workspace starts with real empty state and opens existing Sandbox order details',async()=>{
+  await navigateWorkspace(page,'Today');await page.getByRole('heading',{name:'No active paid orders',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Maya L.',exact:true}).count(),0);
+  await navigateWorkspace(page,'Orders');await page.getByRole('heading',{name:'No active paid orders',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Sandbox',exact:true}).click();
+  const open=page.getByRole('button',{name:/^Open order /}).first();await open.waitFor();await open.click();
+  const details=page.getByRole('dialog',{name:'Synthetic pickup',exact:true});await details.waitFor();
+  await details.getByText('Sandbox order',{exact:true}).waitFor();await details.getByText('Payment verified',{exact:true}).waitFor();
+  assert.equal(await details.getByRole('button',{name:/Mark Ready|Mark collected/}).count(),0);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({path:'test-artifacts/screenshots/mobile-order-details.png',fullPage:true});
+  await details.getByRole('button',{name:'Open kitchen',exact:true}).click();
+  await page.getByRole('heading',{name:'Batches and paid pickup orders',exact:true}).waitFor();
+ });
+ await check('order refresh closes details when the order leaves the current filter',async()=>{
+  const orders=await request('/api/workspace?scope=sandbox&filter=active',{cookie});assert.equal(orders.status,200);
+  const order=orders.data.orders[0];assert.ok(order);assert.equal(Number(order.is_test),1);
+  const refreshContext=await browser.newContext({ignoreHTTPSErrors:true,storageState:await context.storageState()});
+  try{
+   await refreshContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());
+   const rp=await refreshContext.newPage();await rp.clock.install();await rp.goto(origin+'/workspace?view=orders');
+   await rp.getByRole('button',{name:'Sandbox',exact:true}).click();
+   const open=rp.getByRole('button',{name:'Open order '+order.id.slice(0,8),exact:true});await open.click();
+   await rp.getByRole('dialog',{name:order.contact_name,exact:true}).waitFor();
+   await db.execute("UPDATE pickup_orders SET order_status='exception' WHERE id=? AND is_test=1",[order.id]);
+   const refreshed=rp.waitForResponse(response=>{const url=new URL(response.url());return url.pathname==='/api/workspace'&&url.searchParams.get('scope')==='sandbox'&&url.searchParams.get('filter')==='active'&&response.status()===200});
+   await rp.clock.fastForward(31000);
+   assert.ok(!(await(await refreshed).json()).orders.some(row=>row.id===order.id));
+   await rp.locator('dialog[open]').waitFor({state:'hidden'});
+   assert.equal(await open.count(),0);
+  }finally{
+   await db.execute('UPDATE pickup_orders SET order_status=? WHERE id=? AND is_test=1',[order.order_status,order.id]);
+   await refreshContext.close();
+  }
+ });
+ await check('customer history stays scoped and owner notes persist after reload',async()=>{
+  await navigateWorkspace(page,'Customers');await page.getByRole('heading',{name:'No real customers yet',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Sandbox customers',exact:true}).click();
+  await page.getByRole('button',{name:'Synthetic pickup',exact:true}).click();
+  let details=page.getByRole('dialog',{name:'Customer details',exact:true});await details.waitFor();
+  const note='Synthetic pickup preference for browser verification.';
+  await details.getByLabel('Private customer note',{exact:true}).fill(note);
+  await details.getByRole('button',{name:'Save customer note',exact:true}).click();await details.getByRole('status').filter({hasText:'Customer note saved.'}).waitFor();
+  await details.getByRole('heading',{name:'Order history',exact:true}).waitFor();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({path:'test-artifacts/screenshots/mobile-customer-details.png',fullPage:true});
+  await details.getByRole('button',{name:'Close customer details',exact:true}).click();await page.reload();
+  await page.getByRole('button',{name:'Sandbox customers',exact:true}).click();await page.getByRole('button',{name:'Synthetic pickup',exact:true}).click();
+  details=page.getByRole('dialog',{name:'Customer details',exact:true});
+  await details.getByLabel('Private customer note',{exact:true}).waitFor();assert.equal(await details.getByLabel('Private customer note',{exact:true}).inputValue(),note);
+  const list=await request('/api/customers?scope=sandbox',{cookie}),customer=list.data.customers.find(c=>c.email==='pickup@example.test');assert.ok(customer);
+  assert.equal((await request('/api/customers?scope=sandbox&key='+customer.key,{cookie})).data.note,note);
+  await page.keyboard.press('Escape');await details.waitFor({state:'hidden'});
+  assert.ok(await page.getByRole('button',{name:'Synthetic pickup',exact:true}).evaluate(e=>e===document.activeElement));
  });
 
  await check('browser edits staging website settings and sees them on the public homepage',async()=>{
   await page.goto(origin+'/workspace?view=content');await page.getByLabel('Opening hours',{exact:true}).fill('Synthetic test hours only');
-  await page.getByRole('button',{name:'Publish to staging',exact:true}).click();await page.getByRole('status').waitFor();
+  const heading=page.getByLabel('Story heading',{exact:true}),beforeHeading=await heading.inputValue();
+  await heading.fill('Synthetic story heading.\nSynthetic coast.');
+  await page.getByRole('button',{name:'Publish to staging',exact:true}).click();await page.getByRole('status').filter({hasText:'Website details saved'}).waitFor();
   await page.goto(origin+'/');await page.getByText('Synthetic test hours only',{exact:true}).waitFor();
+  assert.match(await page.locator('.story-card h2').innerText(),/Synthetic story heading\.\s*Synthetic coast\./);
+  await page.goto(origin+'/workspace?view=content');await page.getByLabel('Story heading',{exact:true}).fill(beforeHeading);
+  await page.getByRole('button',{name:'Publish to staging',exact:true}).click();await page.getByRole('status').filter({hasText:'Website details saved'}).waitFor();
+  await page.goto(origin+'/');await page.getByText('Synthetic test hours only',{exact:true}).waitFor();
+  assert.match(await page.locator('.story-card h2').innerText(),/Andean roots\.\s*West Coast life\./);
   assert.equal(await page.locator('.menu-card h3').first().textContent(),'Synthetic browser edit');
   assert.equal(await page.getByRole('link',{name:'Workspace',exact:true}).count(),1);
   await page.getByRole('link',{name:'Workspace',exact:true}).click();await page.waitForURL('**/workspace');
  });
- await check('second owner uses the same login and full orbital navigation',async()=>{
+ await check('second owner uses the same login and grouped sidebar navigation',async()=>{
   const ownerContext=await browser.newContext({ignoreHTTPSErrors:true});await ownerContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const op=await ownerContext.newPage();
   await op.goto(origin+'/sign-in');await op.getByLabel('Email',{exact:true}).fill('owner-two@example.test');await op.getByLabel('Password',{exact:true}).fill(password);await op.getByRole('button',{name:'Sign in',exact:true}).click();await op.waitForURL('**/workspace');
-  for(const name of ['Sales','Orders','Production','Inventory','Financials','Marketing','Website','Food Truck','Staff'])await op.getByRole('button',{name,exact:true}).waitFor();
-  await op.getByRole('button',{name:'Staff',exact:true}).click();await op.getByRole('heading',{name:'Team access',exact:true}).waitFor();
+  const nav=op.getByRole('navigation',{name:'Puna workspace',exact:true});
+  for(const name of ['Today','Orders','Customers','Menu','Kitchen','Website','Team & settings'])await nav.getByRole('button',{name,exact:true}).waitFor();
+  assert.equal(await op.getByRole('region',{name:'Puna orbital navigation'}).count(),0);
+  await navigateWorkspace(op,'Team & settings');await op.getByRole('heading',{name:'Team access',exact:true}).waitFor();
   await op.getByRole('button',{name:'Sign out',exact:true}).click();await op.waitForURL('**/sign-in');await ownerContext.close();
  });
  await check('browser food-truck login is restricted and legacy test orders never enter paid queue',async()=>{
@@ -295,26 +405,32 @@ try{
   }
   await publicContext.close();
  });
- await page.goto(origin+'/workspace?view=edit');await page.getByLabel('Name',{exact:true}).first().waitFor();
- await check('Classic and Orbital share the same editor and preserve an unsaved edit',async()=>{
-  const input=page.getByLabel('Name',{exact:true}).first(),before=await input.inputValue();await input.fill('Synthetic unsaved view change');
-  await page.getByLabel('Workspace view',{exact:true}).selectOption('classic');await page.getByRole('navigation',{name:'Classic workspace'}).waitFor();assert.equal(await input.inputValue(),'Synthetic unsaved view change');assert.equal(await page.getByRole('region',{name:'Puna orbital navigation'}).isVisible(),false);
-  await page.getByLabel('Workspace view',{exact:true}).selectOption('orbital');assert.equal(await input.inputValue(),'Synthetic unsaved view change');await input.fill(before);
+ await check('sidebar navigation and browser history preserve an unsaved website edit',async()=>{
+  await page.goto(origin+'/workspace?view=content');
+  const input=page.getByLabel('Homepage introduction',{exact:true});await input.waitFor();const before=await input.inputValue();
+  await input.fill('Synthetic unsaved sidebar change');
+  await navigateWorkspace(page,'Today');await input.waitFor({state:'hidden'});
+  await navigateWorkspace(page,'Website');assert.equal(await input.inputValue(),'Synthetic unsaved sidebar change');
+  await page.goBack();await input.waitFor({state:'hidden'});
+  await page.goForward();await input.waitFor();assert.equal(await input.inputValue(),'Synthetic unsaved sidebar change');
+  await input.fill(before);
+  assert.equal((await request('/api/puna')).data.settings.intro,before);
  });
  await check('capture synthetic desktop, laptop, tablet and mobile review screenshots',async()=>{
   mkdirSync('test-artifacts/screenshots',{recursive:true});
-  for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844]]){
+  for(const [device,width,height] of [['desktop',1440,1000],['laptop',1024,900],['tablet',768,1024],['mobile',390,844]]){
    await page.setViewportSize({width,height});
-   await page.getByRole('button',{name:'Puna Home',exact:true}).click();
-   await page.getByRole('img',{name:'Puna official logo'}).evaluate(im=>im.decode());
+   await navigateWorkspace(page,'Today');
+   await page.getByRole('link',{name:'Puna website',exact:true}).locator('img').evaluate(im=>im.decode());
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await page.screenshot({path:'test-artifacts/screenshots/'+device+'-home.png',fullPage:true});
-   await page.getByRole('button',{name:'Website',exact:true}).click();
-   await page.getByRole('button',{name:'Products',exact:true}).click();
+   await navigateWorkspace(page,'Menu');await page.getByRole('button',{name:'Edit Synthetic browser edit',exact:true}).waitFor();
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await page.screenshot({path:'test-artifacts/screenshots/'+device+'-products.png',fullPage:true});
-   await page.getByRole('button',{name:'Edit',exact:true}).click();
-   await page.getByLabel('Name',{exact:true}).first().waitFor();
-   await page.locator('article.panel').first().evaluate(el=>el.scrollIntoView({behavior:'instant',block:'start'}));
-   await page.locator('article.panel').first().screenshot({path:'test-artifacts/screenshots/'+device+'-edit.png',animations:'disabled'});
+   const editor=await openMenuItem(page,'Synthetic browser edit');
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+   await editor.screenshot({path:'test-artifacts/screenshots/'+device+'-edit.png',animations:'disabled'});
+   await editor.getByRole('button',{name:'Close menu item',exact:true}).click();
   }
   writeFileSync('test-artifacts/screenshots/commit.txt',process.env.GITHUB_SHA+'\n');
  });
@@ -336,7 +452,8 @@ try{
   const [saved]=await db.execute('SELECT p.available,p.price_cents,p.source_status,m.* FROM products p JOIN commerce_products m ON m.product_id=p.id WHERE p.id=?',[row.id]);
   assert.equal(saved[0].publication,'draft');assert.equal(saved[0].price_confirmed,1);assert.equal(saved[0].ingredients_confirmed,0);assert.equal(saved[0].available,0);assert.equal(saved[0].source_status,'initial');assert.equal(saved[0].tax_rules,null);assert.equal(saved[0].deposit_cents,null);assert.equal(saved[0].packing_seconds,null);
   assert.equal(Number((await db.execute('SELECT COUNT(*) n FROM inventory_balances WHERE product_id=?',[row.id]))[0][0].n),0);
-  await page.getByRole('group',{name:row.name,exact:true}).getByLabel('Description',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Edit '+row.name,exact:true}).waitFor();
+  await page.getByText('Advanced checkout settings',{exact:true}).click();
   await page.getByText(row.name+' · draft',{exact:true}).waitFor();
   assert.ok(!(await request('/api/puna')).data.products.some(p=>p.id===row.id));
   await page.getByRole('button',{name:'Review import',exact:true}).click();await page.getByRole('button',{name:'Import reviewed records as drafts',exact:true}).click();
@@ -345,16 +462,17 @@ try{
  });
  await check('imported product publishes separately and owner description edits remain protected',async()=>{
   const name='ZZZ Synthetic source import',id='zzz-browser-source';
-  await page.getByText(name+' · draft',{exact:true}).click();
-  const panel=page.locator('details').filter({has:page.locator('summary').filter({hasText:name})});
+  const summary=page.getByText(name+' · draft',{exact:true});await summary.click();
+  const panel=summary.locator('..');
   await panel.getByLabel('Visibility').selectOption('staging');
   await panel.getByRole('button',{name:'Save checkout settings',exact:true}).click();
   await page.getByRole('status').filter({hasText:'Checkout settings saved'}).waitFor();
   assert.ok((await request('/api/puna')).data.products.some(p=>p.id===id&&p.price===800&&!p.available));
-  const group=page.getByRole('group',{name,exact:true});
+  const group=await openMenuItem(page,name);
   await group.getByLabel('Description',{exact:true}).fill('Synthetic owner edit retained.');
   await group.getByRole('button',{name:'Save product',exact:true}).click();
   await page.getByRole('status').filter({hasText:'Product saved'}).waitFor();
+  await group.getByRole('button',{name:'Close menu item',exact:true}).click();
   const row={id,canonicalId:'synthetic:browser-source',sourceKey:'synthetic:browser-source',sourceReference:'https://example.test/catalogue',sourceHash:'b'.repeat(64),name,description:'Conflicting replacement',priceCents:800,kind:'fresh',category:'empanada',priceConfirmed:true};
   await page.getByLabel('Reviewed catalogue package',{exact:true}).fill(JSON.stringify({action:'import-products',rows:[row]}));await page.getByRole('button',{name:'Review import',exact:true}).click();await page.getByRole('button',{name:'Import reviewed records as drafts',exact:true}).click();
   await page.getByRole('alert').filter({hasText:'OWNER_EDIT_CONFLICT'}).waitFor();
@@ -364,8 +482,9 @@ try{
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  });
 
- await check('browser orbital home and logout work',async()=>{
-  await page.getByRole('button',{name:'Puna Home',exact:true}).click();await page.getByRole('img',{name:'Puna official logo'}).waitFor();
+ await check('browser workspace home and logout work',async()=>{
+  await navigateWorkspace(page,'Today');await page.getByRole('link',{name:'Puna website',exact:true}).waitFor();
+  if(!await page.getByRole('button',{name:'Sign out',exact:true}).isVisible())await page.getByRole('button',{name:'Open workspace menu',exact:true}).click();
   await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.waitForURL('**/sign-in');
   await page.goto(origin+'/workspace');await page.waitForURL('**/sign-in');
  });

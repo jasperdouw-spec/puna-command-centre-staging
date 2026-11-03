@@ -3,8 +3,9 @@ import {checkOrigin,requireRole} from '@/lib/auth';
 import {database} from '@/lib/db';
 import {json,failure} from '@/lib/http';
 import {z} from 'zod';
+import {initialSettings} from '@/lib/puna';
 export const runtime='nodejs';
-const fields=z.object({headline:z.string().trim().min(1).max(100),intro:z.string().trim().min(1).max(300),story:z.string().trim().min(1).max(4000),hours:z.string().trim().min(1).max(700),location:z.string().trim().min(1).max(500)}).strict();
+const fields=z.object({headline:z.string().trim().min(1).max(100),intro:z.string().trim().min(1).max(300),storyHeading:z.string().trim().min(1).max(100).default(initialSettings.storyHeading),story:z.string().trim().min(1).max(4000),hours:z.string().trim().min(1).max(700),location:z.string().trim().min(1).max(500)}).strict();
 const payload=z.object({version:z.number().int().min(0),settings:fields}).strict();
 export async function GET(){try{await requireRole(['owner']);const c=await catalogue();const [drafts]=await database().query('SELECT id,base_version,value,created_at FROM website_revisions WHERE status=\'draft\' ORDER BY id DESC LIMIT 20');return json({settings:c.settings,version:c.version,drafts})}catch(e){return failure(e)}}
 export async function PATCH(req:Request){

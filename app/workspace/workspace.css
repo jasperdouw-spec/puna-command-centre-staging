@@ -1,0 +1,234 @@
+/* Owner workspace only. Public website and the staff pickup workspace keep their styles. */
+.puna-workspace.workspace-theme {
+  --pw-paper: #f6f3e9;
+  --pw-panel: #fffefa;
+  --pw-rail: #eeece2;
+  --pw-text: #222722;
+  --pw-muted: #626b60;
+  --pw-line: #dadfd0;
+  --pw-amber: #dca33a;
+  --pw-gold: #f5e9c5;
+  --pw-olive: #52623c;
+  --pw-olive-soft: #e9eedf;
+  --pw-error: #784726;
+  min-height: 100vh;
+  background: var(--pw-paper);
+  color: var(--pw-text);
+  font: 15px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  color-scheme: light;
+}
+.puna-workspace.workspace-theme *, .puna-workspace.workspace-theme *::before, .puna-workspace.workspace-theme *::after {box-sizing: border-box}
+.puna-workspace.workspace-theme [hidden] {display: none !important}
+.puna-workspace.workspace-theme h1, .puna-workspace.workspace-theme h2, .puna-workspace.workspace-theme h3, .puna-workspace.workspace-theme h4 {color: var(--pw-text); font-family: inherit; overflow-wrap: anywhere}
+.puna-workspace.workspace-theme h1 {font-size: clamp(29px, 3.2vw, 38px); line-height: 1.16; font-weight: 650; letter-spacing: -.045em; margin: 7px 0 10px}
+.puna-workspace.workspace-theme h2 {font-size: 20px; line-height: 1.35; font-weight: 600; letter-spacing: -.02em; margin: 0 0 12px}
+.puna-workspace.workspace-theme h3 {font-size: 16px; line-height: 1.4; font-weight: 600; letter-spacing: -.01em; margin: 0 0 7px}
+.puna-workspace.workspace-theme h4 {font-size: 15px; line-height: 1.4; font-weight: 600; margin: 0 0 6px}
+.puna-workspace.workspace-theme p {line-height: 1.6; margin: 0 0 13px; overflow-wrap: anywhere}
+.puna-workspace.workspace-theme a {color: var(--pw-olive); text-underline-offset: 4px}
+.puna-workspace.workspace-theme a:hover {text-decoration: underline}
+.puna-workspace.workspace-theme small {font-size: 12px}
+.puna-workspace.workspace-theme :is(button, input, textarea, select) {font-family: inherit; font-size: 14px; max-width: 100%}
+.puna-workspace.workspace-theme button, .puna-workspace.workspace-theme .pw-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 41px; margin: 0; padding: 9px 14px; border: 1px solid var(--pw-line);
+  border-radius: 8px; background: var(--pw-panel); color: var(--pw-text);
+  font-weight: 500; line-height: 1.4; text-align: center; text-decoration: none; cursor: pointer;
+  box-shadow: none; transition: background .15s ease, border-color .15s ease;
+}
+.puna-workspace.workspace-theme button:hover, .puna-workspace.workspace-theme .pw-button:hover {background: #f0f1e8; border-color: #b5bfaa; text-decoration: none}
+.puna-workspace.workspace-theme :is(button, input, textarea, select, a):focus-visible {outline: 3px solid var(--pw-amber); outline-offset: 3px}
+.puna-workspace.workspace-theme button:disabled {opacity: .55; cursor: not-allowed}
+.puna-workspace.workspace-theme button:disabled:hover {background: var(--pw-panel)}
+.puna-workspace.workspace-theme .pw-primary {background: var(--pw-amber); border-color: var(--pw-amber); color: #292719}
+.puna-workspace.workspace-theme .pw-primary:hover {background: #ce9429; border-color: #ce9429}
+.puna-workspace.workspace-theme .pw-primary:disabled:hover {background: var(--pw-amber)}
+.puna-workspace.workspace-theme .pw-secondary {background: var(--pw-panel); color: var(--pw-text)}
+.puna-workspace.workspace-theme .pw-icon-button {padding: 9px; min-width: 40px; flex-shrink: 0; background: transparent; border-color: transparent}
+.puna-workspace.workspace-theme .pw-link {background: none; border: 0; color: var(--pw-olive); padding: 2px 0; justify-content: flex-start; text-align: left; min-height: 35px; font-weight: 600}
+.puna-workspace.workspace-theme .pw-link:hover {background: none; text-decoration: underline}
+.puna-workspace.workspace-theme svg {flex-shrink: 0}
+.puna-workspace.workspace-theme .pw-muted, .puna-workspace.workspace-theme .subtle {color: var(--pw-muted)}
+.puna-workspace.workspace-theme .pw-kicker {color: var(--pw-muted); font-size: 11px; font-weight: 600; letter-spacing: .12em; margin: 0 0 8px}
+.puna-workspace.workspace-theme .pw-skip {position: absolute; top: -100px; left: 20px; padding: 10px 16px; background: var(--pw-text); color: var(--pw-panel); border-radius: 7px; z-index: 100}
+.puna-workspace.workspace-theme .pw-skip:focus {top: 12px}
+.puna-workspace.workspace-theme .pw-layout {display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: 100vh}
+.puna-workspace.workspace-theme .pw-rail {position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; padding: 32px 17px 19px; background: var(--pw-rail); border-right: 1px solid var(--pw-line); overflow-y: auto}
+.puna-workspace.workspace-theme .pw-brand {display: flex; align-items: center; gap: 11px; padding: 0 11px 35px; color: var(--pw-text); text-decoration: none}
+.puna-workspace.workspace-theme .pw-brand img {object-fit: contain; flex-shrink: 0}
+.puna-workspace.workspace-theme .pw-brand strong {display: block; font-size: 30px; font-weight: 800; letter-spacing: -.06em; line-height: 1}
+.puna-workspace.workspace-theme .pw-brand small {display: block; margin-top: 7px; font-size: 11px; letter-spacing: .1em; color: var(--pw-muted)}
+.puna-workspace.workspace-theme .pw-navigation {display: flex; flex-direction: column; gap: 6px; flex: 1}
+.puna-workspace.workspace-theme .pw-nav-caption {padding: 0 13px; margin: 0 0 10px; color: var(--pw-muted); font-size: 11px; font-weight: 500; letter-spacing: .08em}
+.puna-workspace.workspace-theme .pw-nav-item {display: flex; align-items: center; justify-content: flex-start; width: 100%; gap: 12px; padding: 12px 13px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--pw-muted); font-size: 14px; min-height: 45px; text-align: left; text-decoration: none}
+.puna-workspace.workspace-theme .pw-nav-item:hover {background: #f8f7ef; border-color: transparent; color: var(--pw-text); text-decoration: none}
+.puna-workspace.workspace-theme .pw-nav-item[aria-current=page] {background: var(--pw-panel); color: var(--pw-text); border-color: #e2e4d9; box-shadow: 0 1px 3px #22272206}
+.puna-workspace.workspace-theme .pw-nav-item[aria-current=page] svg {color: #91630e}
+.puna-workspace.workspace-theme .pw-nav-item[aria-current=page]::after {content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--pw-amber); margin-left: auto; flex-shrink: 0}
+.puna-workspace.workspace-theme .pw-rail-bottom {margin-top: auto; padding-top: 46px}
+.puna-workspace.workspace-theme .pw-site-link {font-size: 12px}
+.puna-workspace.workspace-theme .pw-owner {display: grid; grid-template-columns: 34px minmax(0, 1fr) 33px; align-items: center; gap: 9px; border-top: 1px solid var(--pw-line); padding: 20px 3px 0; margin-top: 20px}
+.puna-workspace.workspace-theme .pw-avatar {display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--pw-gold); color: #6f5114; font-size: 12px; font-weight: 600}
+.puna-workspace.workspace-theme .pw-owner strong {font-size: 13px; display: block; font-weight: 600; overflow-wrap: anywhere}
+.puna-workspace.workspace-theme .pw-owner small {font-size: 11px; display: block; color: var(--pw-muted)}
+.puna-workspace.workspace-theme .pw-owner .pw-icon-button {min-width: 33px; padding: 7px}
+.puna-workspace.workspace-theme .pw-mobile-toggle {display: none}
+.puna-workspace.workspace-theme .pw-main {min-width: 0; outline: none}
+.puna-workspace.workspace-theme .pw-topbar {padding: 20px clamp(22px, 3vw, 42px); min-height: 71px; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-bottom: 1px solid var(--pw-line)}
+.puna-workspace.workspace-theme .pw-breadcrumb {display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--pw-muted)}
+.puna-workspace.workspace-theme .pw-breadcrumb strong {font-weight: 500; color: var(--pw-text)}
+.puna-workspace.workspace-theme .pw-environment {display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--pw-muted); white-space: nowrap}
+.puna-workspace.workspace-theme .pw-environment::before {content: ""; width: 6px; height: 6px; background: #a98538; border-radius: 50%}
+.puna-workspace.workspace-theme .pw-content {max-width: 1420px; margin: 0 auto; padding: 33px clamp(22px, 3vw, 42px) 65px}
+.puna-workspace.workspace-theme .pw-page-heading {display: flex; gap: 20px; justify-content: space-between; align-items: center; margin-bottom: 25px}
+.puna-workspace.workspace-theme .pw-page-heading p:last-child {margin-bottom: 0; font-size: 14px}
+.puna-workspace.workspace-theme .pw-tabs {display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-bottom: 1px solid var(--pw-line); padding-bottom: 14px; margin-bottom: 24px}
+.puna-workspace.workspace-theme .pw-tabs button {background: transparent; color: var(--pw-muted); border-color: transparent; padding: 8px 13px; min-height: 38px; font-size: 13px}
+.puna-workspace.workspace-theme .pw-tabs button[aria-selected=true], .puna-workspace.workspace-theme .pw-tabs button[aria-pressed=true] {background: var(--pw-panel); color: var(--pw-text); border-color: var(--pw-line)}
+.puna-workspace.workspace-theme .pw-tabs button:hover {background: var(--pw-panel)}
+.puna-workspace.workspace-theme .pw-section-head > .pw-tabs {margin: 0; padding: 0; border: 0}
+.puna-workspace.workspace-theme .pw-section-head {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin: 0 0 18px}
+.puna-workspace.workspace-theme .pw-section-head h2, .puna-workspace.workspace-theme .pw-section-head p {margin-bottom: 0}
+.puna-workspace.workspace-theme .pw-actions, .puna-workspace.workspace-theme .pw-filters {display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin: 15px 0}
+.puna-workspace.workspace-theme .pw-filters {margin: 0 0 18px}
+.puna-workspace.workspace-theme .pw-filters button[aria-pressed=true] {background: var(--pw-gold); border-color: #cdbd92}
+.puna-workspace.workspace-theme .pw-panel, .puna-workspace.workspace-theme .panel {background: var(--pw-panel); border: 1px solid var(--pw-line); border-radius: 12px; padding: 23px; margin: 0 0 21px; box-shadow: none}
+.puna-workspace.workspace-theme article.panel {margin-top: 15px}
+.puna-workspace.workspace-theme .panel .panel {padding: 18px; border-color: #e6e8de; background: #fcfcf6}
+.puna-workspace.workspace-theme .pw-panel > :last-child, .puna-workspace.workspace-theme .panel > :last-child {margin-bottom: 0}
+.puna-workspace.workspace-theme .pw-empty {padding: 35px 22px; background: var(--pw-panel); border: 1px solid var(--pw-line); border-radius: 12px; color: var(--pw-muted); text-align: center}
+.puna-workspace.workspace-theme .pw-empty h2, .puna-workspace.workspace-theme .pw-empty h3 {color: var(--pw-text)}
+.puna-workspace.workspace-theme .pw-alert, .puna-workspace.workspace-theme .pw-error, .puna-workspace.workspace-theme [role=alert] {padding: 13px 16px; background: #f4ebd6; border-left: 3px solid #987032; color: var(--pw-error); border-radius: 6px; margin-bottom: 18px}
+.puna-workspace.workspace-theme .pw-success {padding: 12px 15px; color: var(--pw-olive); background: var(--pw-olive-soft); border-radius: 7px; margin-bottom: 16px}
+.puna-workspace.workspace-theme .pw-badge, .puna-workspace.workspace-theme .pw-status {display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: #eef0e7; border-radius: 5px; color: #54604f; font-size: 12px; line-height: 1.4; font-weight: 500}
+.puna-workspace.workspace-theme .pw-badge.pw-ready, .puna-workspace.workspace-theme .pw-status[data-status=ready], .puna-workspace.workspace-theme .pw-status[data-status=collected] {background: var(--pw-olive-soft); color: var(--pw-olive)}
+.puna-workspace.workspace-theme .pw-badge.pw-warning, .puna-workspace.workspace-theme .pw-status[data-status=reserved], .puna-workspace.workspace-theme .pw-status[data-status=loaded] {background: var(--pw-gold); color: #755216}
+.puna-workspace.workspace-theme .pw-badge-olive {background: var(--pw-olive-soft); color: var(--pw-olive)}
+.puna-workspace.workspace-theme .pw-badge-amber {background: var(--pw-gold); color: #755216}
+.puna-workspace.workspace-theme .pw-order-id {display: block; color: var(--pw-muted); font-size: 12px; margin-top: 4px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere}
+.puna-workspace.workspace-theme .pw-table-wrap, .puna-workspace.workspace-theme .table-scroll {border: 1px solid var(--pw-line); border-radius: 11px; background: var(--pw-panel); overflow-x: auto; margin-bottom: 20px}
+.puna-workspace.workspace-theme .pw-table, .puna-workspace.workspace-theme table {width: 100%; border-collapse: collapse; text-align: left; font-size: 14px}
+.puna-workspace.workspace-theme th {background: #f9f9f1; color: var(--pw-muted); font-size: 12px; font-weight: 500; text-align: left; padding: 13px 17px; border-bottom: 1px solid var(--pw-line); white-space: nowrap}
+.puna-workspace.workspace-theme td {text-align: left; padding: 16px 17px; border-bottom: 1px solid #e5e8dd; vertical-align: middle; overflow-wrap: anywhere}
+.puna-workspace.workspace-theme tr:last-child td {border-bottom: 0}
+.puna-workspace.workspace-theme td .pw-link {font-size: 14px; line-height: 1.4; min-height: 30px}
+.puna-workspace.workspace-theme .pw-number {font-variant-numeric: tabular-nums; white-space: nowrap}
+.puna-workspace.workspace-theme .pw-metrics {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 23px}
+.puna-workspace.workspace-theme .pw-metric {padding: 20px 22px; background: var(--pw-panel); border: 1px solid var(--pw-line); border-radius: 11px}
+.puna-workspace.workspace-theme .pw-stat-label {display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--pw-muted); margin: 0}
+.puna-workspace.workspace-theme .pw-stat-value {display: block; font-size: 31px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.04em; line-height: 1.2; margin: 11px 0 6px}
+.puna-workspace.workspace-theme .pw-stat-note {display: block; font-size: 12px; color: var(--pw-muted); margin: 0}
+.puna-workspace.workspace-theme .pw-fields {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px}
+.puna-workspace.workspace-theme .pw-field {margin-bottom: 19px}
+.puna-workspace.workspace-theme fieldset {min-width: 0; border: 0; padding: 0; margin: 0}
+.puna-workspace.workspace-theme label {display: block; color: var(--pw-muted); font-size: 13px; font-weight: 500; margin: 0 0 7px}
+.puna-workspace.workspace-theme input:not([type=checkbox]), .puna-workspace.workspace-theme textarea, .puna-workspace.workspace-theme select {display: block; width: 100%; border: 1px solid #c8d0bf; border-radius: 7px; background: #fffefa; color: var(--pw-text); padding: 11px 12px; margin: 7px 0 18px; font-size: 15px; line-height: 1.5; min-height: 44px; min-width: 0}
+.puna-workspace.workspace-theme textarea {resize: vertical}
+.puna-workspace.workspace-theme input[type=checkbox] {width: 17px; height: 17px; accent-color: var(--pw-olive); vertical-align: middle; margin: 0 8px 0 0; flex-shrink: 0}
+.puna-workspace.workspace-theme .pw-checkbox {display: flex; align-items: flex-start; gap: 2px; color: var(--pw-text); margin: 17px 0; font-size: 14px; font-weight: 400}
+.puna-workspace.workspace-theme .pw-checkbox input {margin-top: 3px}
+.puna-workspace.workspace-theme .pw-drawer {position: fixed; inset: 0 0 0 auto; width: min(460px, 100%); max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; padding: 29px; border: 0; border-left: 1px solid var(--pw-line); background: var(--pw-panel); color: var(--pw-text); overflow-y: auto; box-shadow: -18px 0 60px #2227221c}
+.puna-workspace.workspace-theme .pw-drawer::backdrop {background: #22272270}
+.puna-workspace.workspace-theme .pw-drawer-head {display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 26px}
+.puna-workspace.workspace-theme .pw-drawer-head h2 {margin-bottom: 4px; font-size: 25px}
+.puna-workspace.workspace-theme .pw-drawer .pw-actions {margin-top: 23px}
+.puna-workspace.workspace-theme .pw-drawer .pw-panel {padding: 17px}
+.puna-workspace.workspace-theme details {margin-top: 15px}
+.puna-workspace.workspace-theme summary {cursor: pointer; font-weight: 500; color: var(--pw-text); padding: 10px 0}
+.puna-workspace.workspace-theme details[open] > summary {margin-bottom: 13px}
+.puna-workspace.workspace-theme .pw-advanced > .panel {padding: 0; margin: 0; border: 0; background: transparent}
+.puna-workspace.workspace-theme .operations-panel {margin-top: 0}
+.puna-workspace.workspace-theme .operations-panel > button:first-of-type {margin-bottom: 22px}
+.puna-workspace.workspace-theme .operations-panel .panel > button, .puna-workspace.workspace-theme .panel form button, .puna-workspace.workspace-theme .panel fieldset > button {margin-right: 8px; margin-bottom: 8px}
+.puna-workspace.workspace-theme .ops-form-grid {gap: 18px}
+.puna-workspace.workspace-theme .pw-content-editor {display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); gap: 22px; align-items: start}
+.puna-workspace.workspace-theme .pw-site-preview {position: sticky; top: 24px}
+.puna-workspace.workspace-theme .pw-preview-heading {padding: 28px; background: var(--pw-text); color: var(--pw-paper); border-radius: 10px; margin-bottom: 20px}
+.puna-workspace.workspace-theme .pw-preview-heading h3 {color: var(--pw-paper); white-space: pre-line; font-size: 29px; line-height: 1.15; letter-spacing: -.035em}
+.puna-workspace.workspace-theme .pw-preview-heading .pw-kicker {color: var(--pw-amber); margin-bottom: 18px}
+.puna-workspace.workspace-theme .pw-preview-copy {white-space: pre-wrap; font-size: 14px}
+.puna-workspace.workspace-theme .pw-readonly-note {background: #eff0e6; padding: 13px 15px; border-radius: 7px; color: var(--pw-muted); font-size: 13px}
+.puna-workspace.workspace-theme .pw-draft-list {display: grid; gap: 8px}
+.puna-workspace.workspace-theme .pw-draft-list button {justify-content: space-between; text-align: left}
+.puna-workspace.workspace-theme .pw-menu-mobile-status {display: none}
+.puna-workspace.workspace-theme .pw-next-action {display: flex; align-items: center; justify-content: space-between; gap: 22px; background: var(--pw-gold); border-radius: 11px; padding: 23px 25px; margin: 0 0 29px}
+.puna-workspace.workspace-theme .pw-next-action h2 {font-size: 18px; margin-bottom: 6px}
+.puna-workspace.workspace-theme .pw-next-action p {font-size: 14px; color: #645b3d; margin: 0; max-width: 620px}
+.puna-workspace.workspace-theme .pw-next-action .pw-button {flex-shrink: 0}
+.puna-workspace.workspace-theme .pw-record-link {display: inline; min-height: 30px; background: none; border: 0; padding: 0; text-align: left; font-size: 14px; line-height: 1.5; font-weight: 600; color: var(--pw-text)}
+.puna-workspace.workspace-theme .pw-record-link:hover {background: none; color: var(--pw-olive); text-decoration: underline; text-underline-offset: 3px}
+.puna-workspace.workspace-theme .pw-scope-note {font-size: 13px; color: var(--pw-muted); display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 19px}
+.puna-workspace.workspace-theme .pw-updated {font-size: 12px; margin-top: 17px}
+.puna-workspace.workspace-theme .pw-pagination {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 13px; margin-top: 19px; font-size: 13px; color: var(--pw-muted)}
+.puna-workspace.workspace-theme .pw-order-lines {padding: 5px 0 19px; border-bottom: 1px solid var(--pw-line); margin-bottom: 18px}
+.puna-workspace.workspace-theme .pw-order-lines > div {display: flex; justify-content: space-between; align-items: flex-start; gap: 17px; padding: 10px 0; font-size: 14px}
+.puna-workspace.workspace-theme .pw-order-lines strong {font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums}
+.puna-workspace.workspace-theme .pw-order-totals {margin: 0 0 24px; font-size: 14px}
+.puna-workspace.workspace-theme .pw-order-totals > div {display: flex; justify-content: space-between; gap: 20px; padding: 7px 0; color: var(--pw-muted)}
+.puna-workspace.workspace-theme .pw-order-totals dd {margin: 0; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap}
+.puna-workspace.workspace-theme .pw-order-totals .pw-total {margin-top: 12px; padding-top: 18px; border-top: 1px solid var(--pw-line); color: var(--pw-text); font-size: 16px; font-weight: 600}
+.puna-workspace.workspace-theme .pw-detail-block {padding: 19px 0; border-top: 1px solid var(--pw-line); margin: 17px 0}
+.puna-workspace.workspace-theme .pw-detail-block p {font-size: 14px; margin-bottom: 8px}
+.puna-workspace.workspace-theme .pw-text-link {display: inline-flex; gap: 7px; align-items: center; font-size: 13px; font-weight: 500; color: var(--pw-olive)}
+.puna-workspace.workspace-theme .pw-money {font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right}
+.puna-workspace.workspace-theme .pw-visually-hidden {position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0}
+@media (min-width: 1600px) {.puna-workspace.workspace-theme .pw-layout {grid-template-columns: 244px minmax(0, 1fr)}}
+@media (max-width: 1100px) {
+  .puna-workspace.workspace-theme .pw-layout {grid-template-columns: 204px minmax(0, 1fr)}
+  .puna-workspace.workspace-theme .pw-rail {padding-left: 12px; padding-right: 12px}
+  .puna-workspace.workspace-theme .pw-content-editor {grid-template-columns: 1fr}
+  .puna-workspace.workspace-theme .pw-site-preview {position: static}
+  .puna-workspace.workspace-theme .pw-metric {padding: 17px}
+}
+@media (max-width: 760px) {
+  .puna-workspace.workspace-theme .pw-layout {display: block}
+  .puna-workspace.workspace-theme .pw-rail {position: relative; height: auto; overflow: visible; padding: 19px 20px; border-right: 0; border-bottom: 1px solid var(--pw-line)}
+  .puna-workspace.workspace-theme .pw-brand {padding: 0 0 17px; gap: 10px}
+  .puna-workspace.workspace-theme .pw-brand strong {font-size: 28px}
+  .puna-workspace.workspace-theme .pw-brand small {font-size: 11px}
+  .puna-workspace.workspace-theme .pw-brand img {width: 37px; height: 37px}
+  .puna-workspace.workspace-theme .pw-mobile-toggle {display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; padding: 11px 14px; background: var(--pw-panel)}
+  .puna-workspace.workspace-theme .pw-navigation {display: none; padding-top: 14px}
+  .puna-workspace.workspace-theme .pw-rail-open .pw-navigation {display: grid; grid-template-columns: 1fr 1fr; gap: 5px}
+  .puna-workspace.workspace-theme .pw-nav-caption {display: none}
+  .puna-workspace.workspace-theme .pw-nav-item {padding: 11px; font-size: 14px; gap: 10px}
+  .puna-workspace.workspace-theme .pw-rail-bottom {grid-column: 1 / -1; padding-top: 11px; margin-top: 5px; border-top: 1px solid var(--pw-line)}
+  .puna-workspace.workspace-theme .pw-owner {grid-template-columns: 34px minmax(0, 1fr) 40px; padding-top: 15px; margin-top: 14px}
+  .puna-workspace.workspace-theme .pw-site-link {font-size: 13px}
+  .puna-workspace.workspace-theme .pw-topbar {padding: 15px 20px; min-height: 54px; flex-wrap: wrap; gap: 8px}
+  .puna-workspace.workspace-theme .pw-content {padding: 26px 20px 45px}
+  .puna-workspace.workspace-theme .pw-page-heading {margin-bottom: 22px}
+  .puna-workspace.workspace-theme .pw-page-heading p:last-child {font-size: 14px}
+  .puna-workspace.workspace-theme .pw-tabs {gap: 3px; padding-bottom: 12px; margin-bottom: 21px}
+  .puna-workspace.workspace-theme .pw-tabs button {font-size: 13px; padding: 9px 10px; min-height: 42px}
+  .puna-workspace.workspace-theme th, .puna-workspace.workspace-theme td {padding: 13px 12px}
+  .puna-workspace.workspace-theme .pw-metrics {gap: 9px}
+  .puna-workspace.workspace-theme .pw-metric {padding: 15px 12px}
+  .puna-workspace.workspace-theme .pw-stat-value {font-size: 27px}
+  .puna-workspace.workspace-theme .pw-stat-label, .puna-workspace.workspace-theme .pw-stat-note {font-size: 12px}
+  .puna-workspace.workspace-theme .pw-panel, .puna-workspace.workspace-theme .panel {padding: 20px}
+  .puna-workspace.workspace-theme input:not([type=checkbox]), .puna-workspace.workspace-theme textarea, .puna-workspace.workspace-theme select {font-size: 16px}
+  .puna-workspace.workspace-theme .pw-drawer {padding: 24px 20px}
+  .puna-workspace.workspace-theme .pw-fields {grid-template-columns: 1fr; gap: 0}
+  .puna-workspace.workspace-theme .pw-menu-availability {display: none}
+  .puna-workspace.workspace-theme .pw-menu-mobile-status {display: block; font-size: 12px; color: var(--pw-muted); margin-top: 4px}
+  .puna-workspace.workspace-theme .pw-next-action {align-items: flex-start; flex-direction: column; gap: 17px; padding: 21px}
+  .puna-workspace.workspace-theme .pw-desk .pw-table th:nth-child(2), .puna-workspace.workspace-theme .pw-desk .pw-table td:nth-child(2), .puna-workspace.workspace-theme .pw-desk .pw-table th:last-child, .puna-workspace.workspace-theme .pw-desk .pw-table td:last-child {display: none}
+}
+@media (max-width: 420px) {
+  .puna-workspace.workspace-theme .pw-rail {padding: 17px 15px}
+  .puna-workspace.workspace-theme .pw-topbar {padding: 13px 15px}
+  .puna-workspace.workspace-theme .pw-content {padding: 24px 15px 40px}
+  .puna-workspace.workspace-theme .pw-metrics {grid-template-columns: 1fr}
+  .puna-workspace.workspace-theme .pw-metric {display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 15px 17px}
+  .puna-workspace.workspace-theme .pw-stat-value {grid-column: 2; grid-row: 1 / 3; align-self: center; margin: 0}
+  .puna-workspace.workspace-theme .pw-stat-note {grid-column: 1}
+  .puna-workspace.workspace-theme .pw-section-head {align-items: flex-start}
+  .puna-workspace.workspace-theme .pw-menu-edit-label {display: none}
+  .puna-workspace.workspace-theme .pw-desk .pw-table .pw-money {display: none}
+}
+@media (pointer: coarse) {
+  .puna-workspace.workspace-theme button, .puna-workspace.workspace-theme .pw-button, .puna-workspace.workspace-theme .pw-link {min-height: 44px}
+  .puna-workspace.workspace-theme .pw-icon-button {min-width: 44px}
+}
+@media (prefers-reduced-motion: reduce) {.puna-workspace.workspace-theme *, .puna-workspace.workspace-theme *::before, .puna-workspace.workspace-theme *::after {transition: none !important; scroll-behavior: auto}}

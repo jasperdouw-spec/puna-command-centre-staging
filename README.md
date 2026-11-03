@@ -1,12 +1,12 @@
 # Unified Puna staging application
 
-The unified application is deployed at https://staging.punaempanadas.ca. The deployed release is `c6a70fcbcf9968255175d19e21735d634b3240e7` (21 October 2026, Pacific time), on Node 22. Hostinger reported deployment completed, followed by hosted acceptance checks. The review branch may contain newer documentation; a branch update does not deploy it. Git auto-deployment is unset and main is not the deployment source.
+The unified application is deployed at https://staging.punaempanadas.ca. The deployed release is `c6a70fcbcf9968255175d19e21735d634b3240e7` (21 October 2026, Pacific time), on Node 22. Hostinger reported deployment completed, followed by hosted acceptance checks. The review branch contains newer source and documentation; a branch update does not deploy them. Git auto-deployment is unset and main is not the deployment source.
 
 The public website and owner/worker workspaces share one authentication system and the isolated staging database. Public design assets and the approved trailer photograph are preserved.
 
 - `/`: public staging catalogue, approved website copy and food-truck-only pickup at Canadian Princess, Ucluelet. Staging is not a public launch.
 - `/sign-in`: existing password sign-in. Owners enter `/workspace`; workers are redirected to `/food-truck` on the server. Hosted worker acceptance remains pending.
-- Owners can use Classic or Orbital navigation, product/content editors, source-tracked catalogue records, operations, recipes/costing and audit views. Permissions are enforced by the server, not by hiding buttons.
+- In the hosted release, owners can use Classic or Orbital navigation, product/content editors, source-tracked catalogue records, operations, recipes/costing and audit views. Permissions are enforced by the server, not by hiding buttons.
 - Website → Products → Edit includes the deployed owner import review screen. It uses `POST /api/records`, retains source mappings, rejects conflicting owner edits and creates private drafts. Price confirmation is independent of ingredients/allergens, stock, tax, deposit and packing verification. Publication is a separate action that changes only the staging menu.
 - Five empanadas are published in the staging catalogue at CAD 8.00 each: Roasted Eggplant, Ají Chicken, Carne, Ham & Cheese and Puna Strüdl (canonical Apple mapping). Only their prices are owner-confirmed. Chimichurri and four distinct Sanpellegrino variants remain private drafts with dated historical-price provenance and unconfirmed current operational details.
 - Unknown stock is not a counted zero. No opening balances were invented. Frozen stock is internal; customer pickup is at the food truck only.
@@ -16,9 +16,17 @@ Checkout, legacy test ordering and bootstrap remain disabled on hosting. Square 
 
 The commerce schema migration was separately approved and applied to the isolated staging database. Startup and deployment never apply migration SQL automatically. Inspect schema and migration history before any separately approved migration; never blindly reset or rerun SQL.
 
+## Pending sidebar CRM release — not deployed
+
+The review-branch candidate replaces circular owner navigation with Today, Orders, Customers, Menu, Kitchen and Website, plus Team & settings. Its palette is cream, ivory, charcoal, golden amber and muted olive. Existing operations, reports, recipes, stock, access controls and audit views remain available through grouped sections. Product and website editors retain version conflicts, explicit product confirmation and private website drafts; the Story heading becomes editable with the default “Andean roots. / West Coast life.” Legacy workspace links remain supported.
+
+Customer history is derived from existing paid pickup order records, with real and sandbox records kept separate. Private customer notes require the separate additive `db/007_customer_notes.sql` migration after hosted schema inspection, a verified private backup and exact migration approval. No startup or deploy applies it automatically. Until note storage is available, customer history remains readable and note editing is unavailable.
+
+This candidate is not the hosted release above. Its source and test results do not authorize a deployment, schema change, payment activation or public launch. Current Hostinger configuration, exact approvals and hosted verification are still required.
+
 ## Verification
 
-The exact deployed `c6a70fcbcf9968255175d19e21735d634b3240e7` candidate passed build, typecheck, 12 domain checks and 67 integration/browser/recovery checks in [GitHub Actions](https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/39695648829). Its deployment archive SHA-256 is `a03350168661b0854162d8401910f9f1003b4674dc9114fe9dad5719e7f52bf5`. These results apply to that exact commit, not subsequent documentation-only commits.
+The exact deployed `c6a70fcbcf9968255175d19e21735d634b3240e7` candidate passed build, typecheck, 12 domain checks and 67 integration/browser/recovery checks in [GitHub Actions](https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/39695648829). Its deployment archive SHA-256 is `a03350168661b0854162d8401910f9f1003b4674dc9114fe9dad5719e7f52bf5`. These results apply to that exact commit, not later review-branch candidates.
 
 Hosted acceptance verified HTTPS, public pages/assets, database connectivity, existing-owner sign-in, orbital navigation, Classic/Orbital preference persistence, product editor access, source-tracked import (10 inserted; none overwritten), five explicit staging publications, and shared catalogue persistence after refresh. A clearly labelled temporary description edit was verified in owner and public views, then restored; both audit entries remain. Logout and subsequent unauthenticated owner-route/API denial passed. Sign-in eventually completed but its delayed transition remains a usability follow-up.
 
