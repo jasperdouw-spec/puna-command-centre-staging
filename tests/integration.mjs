@@ -294,7 +294,7 @@ try{
   assert.equal(await page.getByRole('button',{name:'Maya L.',exact:true}).count(),0);
   await navigateWorkspace(page,'Orders');await page.getByRole('heading',{name:'No active paid orders',exact:true}).waitFor();
   await page.getByRole('button',{name:'Sandbox',exact:true}).click();
-  const open=page.getByRole('button',{name:/^Open order /}).first();await open.waitFor();await open.click();
+  const open=page.getByRole('region',{name:'Orders workspace',exact:true}).getByRole('button',{name:'Synthetic pickup',exact:true}).first();await open.waitFor();await open.click();
   const details=page.getByRole('dialog',{name:'Synthetic pickup',exact:true});await details.waitFor();
   await details.getByText('Sandbox order',{exact:true}).waitFor();await details.getByText('Payment verified',{exact:true}).waitFor();
   assert.equal(await details.getByRole('button',{name:/Mark Ready|Mark collected/}).count(),0);
