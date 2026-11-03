@@ -462,7 +462,7 @@ try{
  });
  await check('imported product publishes separately and owner description edits remain protected',async()=>{
   const name='ZZZ Synthetic source import',id='zzz-browser-source';
-  const summary=page.getByText(name+' · draft',{exact:true});await summary.click();
+  const summary=page.locator('summary').filter({hasText:name});await summary.click();
   const panel=summary.locator('..');
   await panel.getByLabel('Visibility').selectOption('staging');
   await panel.getByRole('button',{name:'Save checkout settings',exact:true}).click();
