@@ -65,11 +65,11 @@ async function advanceBoundedSalesRun(actor:number|null,id:string){
   // One bounded provider page per request. A scheduler or owner continues the
   // persisted cursor. Cursor and accepted records commit in the same transaction.
   let response:any;
-  if(run.phase==='orders')response=await squareRead('/v2/orders/search',token,{location_ids:identity.locations.map((l:any)=>l.id),limit:100,...(run.cursor?{cursor:run.cursor}:{}),query:{filter:{date_time_filter:{updated_at:{start_at:run.start_at,end_at:run.end_at}}},sort:{sort_field:'UPDATED_AT',sort_order:'ASC'}}});
+  if(run.phase==='orders')response=await squareRead('/v2/orders/search',token,{location_ids:identity.locations.map((l:any)=>l.id),limit:100,...(run.checkpoint_cursor?{cursor:run.checkpoint_cursor}:{}),query:{filter:{date_time_filter:{updated_at:{start_at:run.start_at,end_at:run.end_at}}},sort:{sort_field:'UPDATED_AT',sort_order:'ASC'}}});
   else{
-   const q=new URLSearchParams({begin_time:'1970-01-01T00:00:00Z',end_time:run.end_at,updated_at_begin_time:run.start_at,updated_at_end_time:run.end_at,sort_field:'UPDATED_AT',sort_order:'ASC',limit:'100',location_id:identity.locations[Number(run.location_index)].id});if(run.cursor)q.set('cursor',run.cursor);response=await squareRead('/v2/refunds?'+q,token);
+   const q=new URLSearchParams({begin_time:'1970-01-01T00:00:00Z',end_time:run.end_at,updated_at_begin_time:run.start_at,updated_at_end_time:run.end_at,sort_field:'UPDATED_AT',sort_order:'ASC',limit:'100',location_id:identity.locations[Number(run.location_index)].id});if(run.checkpoint_cursor)q.set('cursor',run.checkpoint_cursor);response=await squareRead('/v2/refunds?'+q,token);
   }
-  const cursor=response.cursor||null;if(cursor===run.cursor&&cursor)throw new SalesError('SQUARE_CURSOR_STALLED',409);
+  const cursor=response.cursor||null;if(cursor===run.checkpoint_cursor&&cursor)throw new SalesError('SQUARE_CURSOR_STALLED',409);
   return await salesTransaction(async c=>{
    if(run.phase==='orders')for(const order of response.orders||[])await storeOrder(c,order,id,actor,identity.merchantId);
    else for(const raw of response.refunds||[]){const r=normalizeRefund(raw);if(!identity.locations.some((l:any)=>l.id===r.locationId))throw new SalesError('SQUARE_LOCATION_MISMATCH',409);
@@ -80,7 +80,7 @@ async function advanceBoundedSalesRun(actor:number|null,id:string){
    }
    let phase=run.phase,locationIndex=Number(run.location_index),complete=false;
    if(!cursor){if(phase==='orders')phase='refunds';else if(locationIndex+1<identity.locations.length)locationIndex++;else complete=true;}
-   await c.execute('UPDATE sales_runs SET state=?,phase=?,cursor=?,location_index=?,pages=pages+1,records=records+?,completed_at=IF(?,UTC_TIMESTAMP(3),NULL) WHERE id=?',[complete?'complete':'pending',phase,cursor,locationIndex,(response.orders||response.refunds||[]).length,complete?1:0,id]);
+   await c.execute('UPDATE sales_runs SET state=?,phase=?,checkpoint_cursor=?,location_index=?,pages=pages+1,records=records+?,completed_at=IF(?,UTC_TIMESTAMP(3),NULL) WHERE id=?',[complete?'complete':'pending',phase,cursor,locationIndex,(response.orders||response.refunds||[]).length,complete?1:0,id]);
    if(complete){await c.execute('UPDATE sales_connection SET last_success=UTC_TIMESTAMP(3),failure_code=NULL,watermark=IF(?=\'refresh\' AND (watermark IS NULL OR watermark<?),?,watermark) WHERE id=1',[run.kind,run.end_at,run.end_at]);await audit(c,actor,'sales:run-completed','sales_run',id);}
    return {id,state:complete?'complete':'pending',phase,pages:Number(run.pages)+1,records:Number(run.records)+(response.orders||response.refunds||[]).length};
   });
@@ -90,7 +90,7 @@ async function advanceBoundedSalesRun(actor:number|null,id:string){
  }finally{if(locked)await lease.query("SELECT RELEASE_LOCK(CONCAT(DATABASE(),':sales-run'))");lease.release();}
 }
 export async function restartSalesCursor(actor:number,id:string){return salesTransaction(async c=>{
- const [r]=await c.execute("UPDATE sales_runs SET cursor=NULL,state='pending',failure_code=NULL WHERE id=? AND state='failed'",[id]);if(!(r as {affectedRows:number}).affectedRows)throw new SalesError('FAILED_RUN_REQUIRED',409);await audit(c,actor,'sales:cursor-restart','sales_run',id);return {id,state:'pending'};
+ const [r]=await c.execute("UPDATE sales_runs SET checkpoint_cursor=NULL,state='pending',failure_code=NULL WHERE id=? AND state='failed'",[id]);if(!(r as {affectedRows:number}).affectedRows)throw new SalesError('FAILED_RUN_REQUIRED',409);await audit(c,actor,'sales:cursor-restart','sales_run',id);return {id,state:'pending'};
 });}
 export async function reconcileSalesOrder(actor:number,id:string,version:number,choice:'csv'|'api'){
  return salesTransaction(async c=>{

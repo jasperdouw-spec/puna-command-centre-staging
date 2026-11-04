@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS sales_runs (
  state ENUM('pending','running','complete','failed') NOT NULL,
  start_at VARCHAR(40) NOT NULL, end_at VARCHAR(40) NOT NULL,
  phase ENUM('orders','refunds') NOT NULL DEFAULT 'orders',
- cursor TEXT NULL, location_index INT UNSIGNED NOT NULL DEFAULT 0,
+ checkpoint_cursor TEXT NULL, location_index INT UNSIGNED NOT NULL DEFAULT 0,
  pages INT UNSIGNED NOT NULL DEFAULT 0, records INT UNSIGNED NOT NULL DEFAULT 0,
  failure_code VARCHAR(80) NULL, started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  completed_at DATETIME(3) NULL, actor_id BIGINT UNSIGNED NULL,

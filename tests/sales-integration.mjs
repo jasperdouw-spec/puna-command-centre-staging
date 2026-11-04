@@ -52,9 +52,9 @@ export async function runSalesChecks({db,request,check,cookie,staffCookie}){
  await check('bounded refresh checkpoints hold CSV overlap and import non-overlap once',async()=>{
   const p=await post({action:'backfill',start:'2025-06-01T00:00:00Z',end:'2025-06-10T00:00:00Z'});run=p.data.id;assert.equal(p.status,200);
   await db.query("CREATE TRIGGER synthetic_page_failure BEFORE INSERT ON audit_log FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic page rollback'");try{assert.equal((await post({action:'continue',id:run})).status,503);}finally{await db.query('DROP TRIGGER synthetic_page_failure');}
-  const [rolled]=await db.execute('SELECT pages,cursor FROM sales_runs WHERE id=?',[run]);assert.equal(rolled[0].pages,0);assert.equal(rolled[0].cursor,null);assert.equal((await db.query('SELECT COUNT(*) n FROM sales_api_orders'))[0][0].n,0);
+  const [rolled]=await db.execute('SELECT pages,checkpoint_cursor FROM sales_runs WHERE id=?',[run]);assert.equal(rolled[0].pages,0);assert.equal(rolled[0].checkpoint_cursor,null);assert.equal((await db.query('SELECT COUNT(*) n FROM sales_api_orders'))[0][0].n,0);
   const first=await post({action:'continue',id:run});assert.equal(first.status,200);assert.equal(first.data.state,'pending');assert.equal((await report()).data.conflicts[0].id,'synthetic-api-1');
-  const [checkpoint]=await db.execute('SELECT cursor FROM sales_runs WHERE id=?',[run]);assert.equal(checkpoint[0].cursor,'synthetic-next');const before=Number((await report()).data.totals.net_cents);
+  const [checkpoint]=await db.execute('SELECT checkpoint_cursor FROM sales_runs WHERE id=?',[run]);assert.equal(checkpoint[0].checkpoint_cursor,'synthetic-next');const before=Number((await report()).data.totals.net_cents);
   assert.equal((await post({action:'continue',id:run})).status,200);assert.equal(Number((await report()).data.totals.net_cents),before+700);const final=await post({action:'continue',id:run});assert.equal(final.data.state,'complete');assert.equal((await post({action:'continue',id:run})).data.duplicate,true);
   const reportData=(await report()).data;assert.equal(Number(reportData.cashRefunds.cash_refund_cents),100);assert.equal(Number(reportData.totals.net_cents),before+700);assert.doesNotMatch(JSON.stringify(reportData),/EXCLUDED|Bearer|accessToken|refreshToken/);
  });
