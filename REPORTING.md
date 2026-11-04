@@ -1,6 +1,6 @@
 # Reporting operation
 
-This candidate extends existing Sales reports and Recipes & production. Hosted migration, import, configuration and deployment require the exact release approval. Real data and reconciliation evidence stay in existing private project records, outside Git and CI.
+The approved 4 November 2026 release extends existing Sales reports and Recipes & production. Migration 008, private server authorization, imports, reconciliation and scheduled refresh are complete on staging. Future hosted changes require their applicable approval. Real data and reconciliation evidence stay in existing private project records, outside Git and CI.
 
 ## Sources and schema
 
@@ -18,7 +18,7 @@ Reference packages retain source links, hashes, dates, formulas and issues in `s
 
 ## Private configuration
 
-After approval, preserve existing runtime keys and add:
+The hosted values below are configured privately. For an approved reconfiguration, preserve every existing runtime key:
 
 - `PUNA_SQUARE_REPORTING_ENABLED=true`
 - `SQUARE_REPORTING_APPLICATION_ID`, `SQUARE_REPORTING_APPLICATION_SECRET`
@@ -33,7 +33,7 @@ Desktop PKCE/MCP helpers are separate. Credentials stay encrypted outside Git wi
 
 ## Refresh and recovery
 
-Hostinger supports Custom cron jobs and protected-route calls for Node.js: [official instructions](https://www.hostinger.com/support/how-to-run-cron-jobs-for-node-js-websites-at-hostinger/). Proposed cadence: every five minutes, POST `/api/sales/jobs` with a private bearer header. Explicit activation sets `PUNA_REPORTING_SCHEDULE_ENABLED=true` and a random `PUNA_REPORTING_JOB_TOKEN` of at least 32 characters. Put the header in a permission-restricted curl config outside the public directory, never a URL or ordinary logs. Use a 55-second client timeout. This runtime does not depend on chat or the desktop.
+Hostinger supports Custom cron jobs and protected-route calls for Node.js: [official instructions](https://www.hostinger.com/support/how-to-run-cron-jobs-for-node-js-websites-at-hostinger/). Active cadence: every five minutes, POST `/api/sales/jobs` with a private bearer header. Explicit activation sets `PUNA_REPORTING_SCHEDULE_ENABLED=true` and a random `PUNA_REPORTING_JOB_TOKEN` of at least 32 characters. Put the header in a permission-restricted curl config outside the public directory, never a URL or ordinary logs. Use a 55-second client timeout. This runtime does not depend on chat or the desktop.
 
 Each request processes one provider page with a shared 40-second network budget, three bounded attempts, an exclusive lease and atomic records/cursor checkpoint. Refresh uses seven-day windows, 72-hour late-arrival overlap and a 15-minute freshness lag. Manual backfills allow up to 31 days. Updated-time filters discover changes to older sales. Complete history requires every approved update window. Failed pages can be retried or their cursor restarted without duplicating facts. Last success, failure codes, unfinished runs and coverage are visible; completing a scan does not resolve excluded records.
 
@@ -42,3 +42,10 @@ Before release approval, record a full private SQL export, checksum, table cover
 Integration/browser tests use disposable GitHub-hosted MariaDB and synthetic data only. Real-source dry runs are separate evidence. Deploy only the exact tested archive. After approval, refresh backup/preconditions, apply additive SQL, preserve runtime values, deploy, authorize the server, import references and scan approved history. Verify protected records, repeated imports, owner views, health and disabled checkout. Stop on unexplained differences.
 
 To roll back the application, disable scheduled reporting and redeploy the prior verified archive. Retain additive tables and audit history. Do not overwrite newer owner edits with a database restore; assess differences and rehearse in an isolated private target first. Full hosted restoration is not demonstrated by synthetic CI.
+
+
+## Release evidence
+
+Hosted code: `d1ba527640fe4edccc293e439255a3d6027df23b`; Hostinger build: `01a1a5df-b752-723f-92df-d1b0c939f330`. The exact archive passed 21 domain and 97 integration/browser/recovery checks on GitHub-hosted MariaDB 11.8.9 with the hosted collation. The completion path avoids mixed-collation comparisons, and diagnostics log only fixed stages and numeric database codes.
+
+Private source reconciliation, repeated imports, owner views, preserved original records and disabled checkout were verified. The first automatic five-minute refresh completed on 4 November 2026 UTC. Read the existing private setup-status and execution receipt for exact imported counts, unresolved mappings, missing original CSVs, cron identity and backup evidence. Full hosted restoration remains untested; do not describe the SQL export or synthetic recovery tests as a successful private restore.
