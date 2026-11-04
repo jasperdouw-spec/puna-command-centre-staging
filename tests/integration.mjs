@@ -298,6 +298,7 @@ try{
   await page.getByText('Synthetic source recipe · recipe · requires verification',{exact:true}).click();await page.locator('.source-references details[open] th').filter({hasText:'Source quantity'}).scrollIntoViewIfNeeded();
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'test-artifacts/screenshots/'+device+'-sales.png',fullPage:true});}
   await navigateWorkspace(page,'Kitchen');await page.getByRole('tab',{name:'Recipes & production',exact:true}).click();await page.getByRole('heading',{name:'Source recipes',exact:true}).waitFor();
+  await page.goto(origin+'/workspace');
  });
  await check('order workspace starts with real empty state and opens existing Sandbox order details',async()=>{
   await navigateWorkspace(page,'Today');await page.getByRole('heading',{name:'No active paid orders',exact:true}).waitFor();
