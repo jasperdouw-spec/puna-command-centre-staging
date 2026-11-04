@@ -12,9 +12,15 @@ The public website and owner/worker workspaces share one authentication system a
 - Unknown stock is not a counted zero. No opening balances were invented. Frozen stock is internal; customer pickup is at the food truck only.
 - Product, content, import and operations mutations retain transactional audit history and version conflict checks.
 
-Checkout, legacy test ordering and bootstrap remain disabled on hosting. Square Sandbox and production credentials, Google OAuth credentials and transactional email are not configured. Square access is awaiting private access to the existing merchant account after a reported verification lockout. Google identity linking is implemented and synthetically tested, but has not been configured or provider-tested. Existing password access remains available.
+Checkout, legacy test ordering and bootstrap remain disabled on hosting. Square Sandbox and production credentials, Google OAuth credentials and transactional email are not configured. Local read-only Square access is now verified; hosted reporting credentials remain unconfigured. Google identity linking is implemented and synthetically tested, but has not been configured or provider-tested. Existing password access remains available.
 
 The commerce schema migration was separately approved and applied to the isolated staging database. Startup and deployment never apply migration SQL automatically. Inspect schema and migration history before any separately approved migration; never blindly reset or rerun SQL.
+
+## Reporting candidate — hosted approval pending
+
+The review branch implements owner-only Square item CSV previews and transactional imports, full-row duplicate detection before privacy projection, versioned product mappings, read-only production OAuth, resumable Orders/Refunds ingestion, and explicit CSV/API source reconciliation. Daily/monthly and product/category/location views share the same included item ledger. Separate Reporting API snapshots use metadata-verified measures and never enter item totals. Source recipes and operating references retain dated versions, formulas and verification issues without changing catalogue, stock or production rules.
+
+The additive `db/008_reporting.sql` migration and real-data imports have **not** been applied to hosting. Local private read-only Square authorization has been verified; this does not configure hosted OAuth or enable scheduled refresh. The historical originals are still required for exact CSV reconciliation. See [REPORTING.md](REPORTING.md) for schema preconditions, metric limits, private credentials, checkpoint recovery and deployment order. The current hosted release remains the release stated above. Candidate CI evidence must be checked at its exact commit before deployment.
 
 ## Deployed sidebar CRM
 

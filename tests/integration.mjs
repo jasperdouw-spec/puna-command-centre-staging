@@ -9,6 +9,7 @@ import {chromium} from 'playwright';
 import {runCommerceChecks} from './commerce-integration.mjs';
 import {runRecordChecks} from './records-integration.mjs';
 import {runCustomerChecks} from './customers-integration.mjs';
+import {runSalesChecks} from './sales-integration.mjs';
 import {verifySyntheticRecovery} from './recovery.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS,'true','Synthetic integration suite is CI-only');
@@ -23,11 +24,11 @@ const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100',PUNA_CHECKOUT_MODE:'square-sa
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
  console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
-function request(path,{method='GET',body,cookie,originHeader=origin,extraHeaders={}}={}){
+function request(path,{method='GET',body,rawBody,cookie,originHeader=origin,extraHeaders={}}={}){
  return new Promise((resolve,reject)=>{
   const headers={...extraHeaders};if(cookie)headers.cookie=cookie;if(originHeader!==null)headers.origin=originHeader;
-  const payload=body===undefined?undefined:JSON.stringify(body);
-  if(payload){headers['content-type']='application/json';headers['content-length']=Buffer.byteLength(payload)}
+  const payload=rawBody??(body===undefined?undefined:JSON.stringify(body));
+  if(payload){if(!rawBody)headers['content-type']='application/json';headers['content-length']=Buffer.byteLength(payload)}
   const r=https.request(origin+path,{method,headers,rejectUnauthorized:false},res=>{let text='';res.on('data',d=>text+=d);res.on('end',()=>{let data;try{data=JSON.parse(text)}catch{data=text}resolve({status:res.statusCode,data,headers:res.headers})})});r.on('error',reject);r.end(payload);
  });
 }
@@ -44,7 +45,8 @@ try{
  for(const file of ['001_initial.sql','003_auth_rate_limits.sql','004_product_versions.sql','005_unified_staging.sql'])await db.query(readFileSync('db/'+file,'utf8'));
  execFileSync(process.execPath,['scripts/migrate.mjs','--apply'],{stdio:'pipe'});
  execFileSync(process.execPath,['scripts/migrate.mjs','--migration=007_customer_notes','--apply'],{stdio:'pipe'});
- await check('additive migration reruns preserve the schema',async()=>{for(const migration of ['006_commerce','007_customer_notes']){const out=execFileSync(process.execPath,['scripts/migrate.mjs','--migration='+migration,'--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)}});
+ execFileSync(process.execPath,['scripts/migrate.mjs','--migration=008_reporting','--apply'],{stdio:'pipe'});
+ await check('additive migration reruns preserve the schema',async()=>{for(const migration of ['006_commerce','007_customer_notes','008_reporting']){const out=execFileSync(process.execPath,['scripts/migrate.mjs','--migration='+migration,'--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)}});
  await check('migration ledger cannot hide a missing expected table',async()=>{
   const [before]=await db.query("SELECT checksum FROM schema_migrations WHERE id='007_customer_notes'");
   await db.query('RENAME TABLE customer_notes TO synthetic_migration_customer_notes');
@@ -215,6 +217,7 @@ try{
  await runCommerceChecks({db,request,check,cookie,staffCookie});
  await runRecordChecks({db,request,check,cookie,staffCookie});
  await runCustomerChecks({db,request,check,cookie,staffCookie});
+ await runSalesChecks({db,request,check,cookie,staffCookie});
  await check('owner order book separates Sandbox records and omits private receipt credentials',async()=>{
   assert.equal((await request('/api/workspace')).status,401);
   assert.equal((await request('/api/workspace',{cookie:staffCookie})).status,403);
@@ -288,6 +291,13 @@ try{
   const box=await editor.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=390);
   await editor.getByLabel('Name',{exact:true}).focus();await page.keyboard.press('Escape');await editor.waitFor({state:'hidden'});
   assert.ok(await page.getByRole('button',{name:'Edit Synthetic browser edit',exact:true}).evaluate(e=>e===document.activeElement));
+ });
+ await check('sales and source recipe views show synthetic evidence on desktop and mobile',async()=>{
+  await navigateWorkspace(page,'Today');await page.getByRole('button',{name:'Sales reports',exact:true}).click();await page.getByRole('heading',{name:'Historical Square files',exact:true}).waitFor();
+  await page.getByLabel('From',{exact:true}).fill('2025-01-01');await page.getByLabel('Through',{exact:true}).fill('2025-12-31');await page.getByLabel('Group by',{exact:true}).selectOption('product');
+  await page.getByText('Synthetic source recipe · recipe · requires verification',{exact:true}).click();await page.getByRole('columnheader',{name:'Source quantity',exact:true}).waitFor();
+  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'test-artifacts/screenshots/'+device+'-sales.png',fullPage:true});}
+  await navigateWorkspace(page,'Kitchen');await page.getByRole('button',{name:'Recipes & production',exact:true}).click();await page.getByRole('heading',{name:'Source recipes',exact:true}).waitFor();
  });
  await check('order workspace starts with real empty state and opens existing Sandbox order details',async()=>{
   await navigateWorkspace(page,'Today');await page.getByRole('heading',{name:'No active paid orders',exact:true}).waitFor();

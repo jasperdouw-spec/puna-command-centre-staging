@@ -7,6 +7,7 @@ import {CommerceError} from '@/lib/commerce-model';
 import {transaction,audit} from '@/lib/commerce';
 import {sourceProduct,importProducts,commerceFields,saveCommerce,recipeInput,saveRecipe,produce} from '@/lib/records';
 import {recipeCost} from '@/lib/costing';
+import {historicalSummary} from '@/lib/sales';
 export const runtime='nodejs';
 export async function GET(){try{
  await requireRole(['owner']);
@@ -14,7 +15,7 @@ export async function GET(){try{
  const [costs]=await database().query<RowDataPacket[]>('SELECT * FROM ingredient_costs');
  const [recipes]=await database().query<RowDataPacket[]>('SELECT * FROM recipe_versions ORDER BY name,version DESC');
  const calculated=recipes.map(r=>({...r,ingredients:JSON.parse(r.ingredients),costing:recipeCost({yieldUnits:r.yield_units===null?null:Number(r.yield_units),ingredients:JSON.parse(r.ingredients).map((i:{id:string;quantity:number;unit:string})=>{const c=costs.find(c=>c.product_id===i.id);return {productId:i.id,sourceReference:r.source_reference,quantity:i.quantity,unit:i.unit,costPerBaseUnitCents:c&&c.verified&&c.base_unit===i.unit&&Number(c.package_quantity)>0&&c.package_cost_cents!==null?Number(c.package_cost_cents)/Number(c.package_quantity):null,verified:!!c?.verified};}),labourMinutes:r.labour_minutes===null?null:Number(r.labour_minutes),labourRateCents:r.labour_rate_cents,packagingCents:r.packaging_cents,includesLabour:false})}));
- const [historical]=await database().query("SELECT COUNT(*) records,MIN(sold_at) period_start,MAX(sold_at) period_end,COALESCE(SUM(gross_cents),0) gross_cents,COALESCE(SUM(discount_cents),0) discount_cents,COALESCE(SUM(refund_cents),0) refund_cents,COALESCE(SUM(tax_cents),0) tax_cents,COALESCE(SUM(tip_cents),0) tip_cents FROM historical_sales WHERE is_test=0");
+ const historical=await historicalSummary();
  const [production]=await database().query('SELECT id,recipe_id,batch_count,output_units,waste_units,created_at FROM production_runs ORDER BY created_at DESC LIMIT 100');
  return json({products,recipes:calculated,costs,historical,production});
  }catch(e){return failure(e)}}

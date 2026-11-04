@@ -232,3 +232,15 @@
   .puna-workspace.workspace-theme .pw-icon-button {min-width: 44px}
 }
 @media (prefers-reduced-motion: reduce) {.puna-workspace.workspace-theme *, .puna-workspace.workspace-theme *::before, .puna-workspace.workspace-theme *::after {transition: none !important; scroll-behavior: auto}}
+.workspace-theme .report-filters,.workspace-theme .report-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:16px 0}
+.workspace-theme .report-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:20px 0}
+.workspace-theme .report-metrics .panel{margin:0;padding:16px;display:grid;gap:8px}
+.workspace-theme .report-metrics strong{font-size:1.4rem}
+.workspace-theme .report-table{max-width:100%;overflow-x:auto;margin:16px 0}
+.workspace-theme .report-table table{border-collapse:collapse;min-width:650px;width:100%;font-size:.85rem}
+.workspace-theme .report-table th,.workspace-theme .report-table td{text-align:left;vertical-align:top;padding:10px;border-bottom:1px solid #e5dfd0;overflow-wrap:anywhere;min-width:75px}
+.workspace-theme .report-table th{font-weight:600}
+.workspace-theme .report-notice{padding:12px 16px;border-left:3px solid #b28a38;background:#faf4e5}
+.workspace-theme .sales-report details,.workspace-theme .source-references details{margin:16px 0}
+.workspace-theme .sales-report summary,.workspace-theme .source-references summary{cursor:pointer;font-weight:600}
+.workspace-theme .sales-report p,.workspace-theme .source-references p{overflow-wrap:anywhere}

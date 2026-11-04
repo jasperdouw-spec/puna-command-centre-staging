@@ -5,7 +5,7 @@ const args=process.argv.slice(2),apply=args.includes('--apply'),name=process.env
 const migrationArgs=args.filter(a=>a.startsWith('--migration='));
 if(migrationArgs.length>1||args.some(a=>a!=='--apply'&&!a.startsWith('--migration=')))throw Error('Unsupported migration arguments');
 const migration=(migrationArgs[0]?.slice('--migration='.length)||'006_commerce').replace(/\.sql$/,'');
-if(!['006_commerce','007_customer_notes'].includes(migration))throw Error('Migration is outside the reviewed scope');
+if(!['006_commerce','007_customer_notes','008_reporting'].includes(migration))throw Error('Migration is outside the reviewed scope');
 if(!['puna_ci_synthetic','u291146170_puna_stage'].includes(name))throw Error('Database is outside the approved staging scope');
 if(apply&&name!=='puna_ci_synthetic'&&process.env.PUNA_SCHEMA_APPROVAL!==migration)throw Error('Exact staging schema approval and backup verification required');
 const sql=readFileSync('db/'+migration+'.sql','utf8'),checksum=createHash('sha256').update(sql).digest('hex'),tables=[...sql.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/g)].map(m=>m[1]);
@@ -14,11 +14,15 @@ try{
  const [version]=await db.execute("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME='products' AND COLUMN_NAME='version'",[name]);
  if(version.length!==1)throw Error('products.version must be inspected and separately approved before migration');
  const [found]=await db.execute('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=?',[name]),existing=new Set(found.map(t=>t.TABLE_NAME));
- if(migration==='007_customer_notes'){
+ if(['007_customer_notes','008_reporting'].includes(migration)){
   if(!existing.has('schema_migrations'))throw Error('Commerce schema must be inspected and applied before customer notes');
   const [prior]=await db.execute("SELECT checksum FROM schema_migrations WHERE id='006_commerce'");
   const expected=createHash('sha256').update(readFileSync('db/006_commerce.sql','utf8')).digest('hex');
   if(prior.length!==1||prior[0].checksum!==expected)throw Error('Commerce migration ledger does not match the reviewed schema');
+ }
+ if(migration==='008_reporting'){
+  const [engines]=await db.query("SELECT TABLE_NAME,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('historical_sales','users','products','audit_log')");
+  if(engines.length!==4||engines.some(t=>t.ENGINE!=='InnoDB'))throw Error('Reporting requires inspected InnoDB historical_sales, users, products and audit_log');
  }
  const [applied]=existing.has('schema_migrations')?await db.execute('SELECT checksum FROM schema_migrations WHERE id=?',[migration]):[[]];
  if(applied.length){

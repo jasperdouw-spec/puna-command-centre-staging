@@ -66,6 +66,7 @@ jobs:
           cd "$RUNNER_TEMP/puna-candidate"
           node -e 'require("next/dist/build/swc").loadBindings().then(b=>{require("node:assert/strict").equal(b.isWasm,true);console.log("VERIFIED WASM compiler")})'
           node tests/domain.mjs
+          node tests/sales-domain.mjs
           npm run typecheck
           npm run build
           cp -R public .next/standalone/public
