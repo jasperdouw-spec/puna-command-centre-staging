@@ -54,23 +54,23 @@ export async function createSalesRun(actor:number|null,kind:'refresh'|'backfill'
 }
 export async function advanceSalesRun(actor:number|null,id:string){return withSquareDeadline(()=>advanceBoundedSalesRun(actor,id));}
 async function advanceBoundedSalesRun(actor:number|null,id:string){
- const lease=await database().getConnection();let locked=false;
+ const lease=await database().getConnection();let locked=false,stage='lease';
  try{
   const [l]=await lease.query<RowDataPacket[]>("SELECT GET_LOCK(CONCAT(DATABASE(),':sales-run'),0) acquired");if(Number(l[0].acquired)!==1)throw new SalesError('REFRESH_BUSY',409);locked=true;
   const [rs]=await database().execute<RowDataPacket[]>('SELECT * FROM sales_runs WHERE id=?',[id]);const run=rs[0];if(!run)throw new SalesError('RUN_NOT_FOUND',404);if(run.state==='complete')return {id,state:'complete',duplicate:true};
   if(Number(run.pages)>=10000)throw new SalesError('BACKFILL_PAGE_LIMIT',409);
   await database().execute("UPDATE sales_runs SET state='running',failure_code=NULL WHERE id=?",[id]);await database().query('UPDATE sales_connection SET last_attempt=UTC_TIMESTAMP(3) WHERE id=1');
-  const {token}=await squareAccess(),identity=await verifySquareIdentity(token);
+  stage='identity';const {token}=await squareAccess(),identity=await verifySquareIdentity(token);
   await database().execute('UPDATE sales_connection SET verified_at=UTC_TIMESTAMP(3) WHERE id=1');
   // One bounded provider page per request. A scheduler or owner continues the
   // persisted cursor. Cursor and accepted records commit in the same transaction.
-  let response:any;
+  stage='provider-page';let response:any;
   if(run.phase==='orders')response=await squareRead('/v2/orders/search',token,{location_ids:identity.locations.map((l:any)=>l.id),limit:100,...(run.checkpoint_cursor?{cursor:run.checkpoint_cursor}:{}),query:{filter:{date_time_filter:{updated_at:{start_at:run.start_at,end_at:run.end_at}}},sort:{sort_field:'UPDATED_AT',sort_order:'ASC'}}});
   else{
    const q=new URLSearchParams({begin_time:'1970-01-01T00:00:00Z',end_time:run.end_at,updated_at_begin_time:run.start_at,updated_at_end_time:run.end_at,sort_field:'UPDATED_AT',sort_order:'ASC',limit:'100',location_id:identity.locations[Number(run.location_index)].id});if(run.checkpoint_cursor)q.set('cursor',run.checkpoint_cursor);response=await squareRead('/v2/refunds?'+q,token);
   }
   const cursor=response.cursor||null;if(cursor===run.checkpoint_cursor&&cursor)throw new SalesError('SQUARE_CURSOR_STALLED',409);
-  return await salesTransaction(async c=>{
+  stage='page-transaction';return await salesTransaction(async c=>{
    if(run.phase==='orders')for(const order of response.orders||[])await storeOrder(c,order,id,actor,identity.merchantId);
    else for(const raw of response.refunds||[]){const r=normalizeRefund(raw);if(!identity.locations.some((l:any)=>l.id===r.locationId))throw new SalesError('SQUARE_LOCATION_MISMATCH',409);
     const [old]=await c.execute<RowDataPacket[]>('SELECT * FROM sales_refunds WHERE id=?',[r.id]);
@@ -80,11 +80,16 @@ async function advanceBoundedSalesRun(actor:number|null,id:string){
    }
    let phase=run.phase,locationIndex=Number(run.location_index),complete=false;
    if(!cursor){if(phase==='orders')phase='refunds';else if(locationIndex+1<identity.locations.length)locationIndex++;else complete=true;}
-   await c.execute('UPDATE sales_runs SET state=?,phase=?,checkpoint_cursor=?,location_index=?,pages=pages+1,records=records+?,completed_at=IF(?,UTC_TIMESTAMP(3),NULL) WHERE id=?',[complete?'complete':'pending',phase,cursor,locationIndex,(response.orders||response.refunds||[]).length,complete?1:0,id]);
-   if(complete){await c.execute('UPDATE sales_connection SET last_success=UTC_TIMESTAMP(3),failure_code=NULL,watermark=IF(?=\'refresh\' AND (watermark IS NULL OR watermark<?),?,watermark) WHERE id=1',[run.kind,run.end_at,run.end_at]);await audit(c,actor,'sales:run-completed','sales_run',id);}
+   stage='checkpoint';await c.execute('UPDATE sales_runs SET state=?,phase=?,checkpoint_cursor=?,location_index=?,pages=pages+1,records=records+?,completed_at=IF(?,UTC_TIMESTAMP(3),NULL) WHERE id=?',[complete?'complete':'pending',phase,cursor,locationIndex,(response.orders||response.refunds||[]).length,complete?1:0,id]);
+   if(complete){stage='completion';await c.execute('UPDATE sales_connection SET last_success=UTC_TIMESTAMP(3),failure_code=NULL,watermark=IF(?=\'refresh\' AND (watermark IS NULL OR watermark<?),?,watermark) WHERE id=1',[run.kind,run.end_at,run.end_at]);stage='completion-audit';await audit(c,actor,'sales:run-completed','sales_run',id);}
+   stage='commit';
    return {id,state:complete?'complete':'pending',phase,pages:Number(run.pages)+1,records:Number(run.records)+(response.orders||response.refunds||[]).length};
   });
  }catch(e){
+  // Never log provider payloads, SQL text/parameters, tokens or driver messages.
+  // Numeric driver diagnostics and a fixed stage identify deployment failures.
+  const diagnostic=e as {errno?:unknown;sqlState?:unknown};
+  console.error('sales-refresh-failure',JSON.stringify({stage,errno:Number.isInteger(diagnostic?.errno)?diagnostic.errno:null,sqlState:typeof diagnostic?.sqlState==='string'&&/^[0-9A-Z]{5}$/.test(diagnostic.sqlState)?diagnostic.sqlState:null}));
   if(locked){const code=e instanceof SalesError?e.code:'SQUARE_REFRESH_FAILED';await database().execute("UPDATE sales_runs SET state='failed',failure_code=? WHERE id=? AND state<>'complete'",[code,id]);await database().execute('UPDATE sales_connection SET failure_code=? WHERE id=1',[code]);}
   throw e;
  }finally{if(locked)await lease.query("SELECT RELEASE_LOCK(CONCAT(DATABASE(),':sales-run'))");lease.release();}

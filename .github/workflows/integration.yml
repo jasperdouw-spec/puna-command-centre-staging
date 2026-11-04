@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 20
     services:
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:11.8
         env:
           MARIADB_ROOT_PASSWORD: synthetic-ci-root-only
           MARIADB_DATABASE: puna_ci_synthetic
