@@ -216,8 +216,8 @@ try{
  });
  await runCommerceChecks({db,request,check,cookie,staffCookie});
  await runRecordChecks({db,request,check,cookie,staffCookie});
- await runCustomerChecks({db,request,check,cookie,staffCookie});
  await runSalesChecks({db,request,check,cookie,staffCookie});
+ await runCustomerChecks({db,request,check,cookie,staffCookie});
  await check('owner order book separates Sandbox records and omits private receipt credentials',async()=>{
   assert.equal((await request('/api/workspace')).status,401);
   assert.equal((await request('/api/workspace',{cookie:staffCookie})).status,403);
