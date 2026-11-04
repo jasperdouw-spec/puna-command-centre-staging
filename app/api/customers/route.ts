@@ -80,7 +80,9 @@ export async function PATCH(req: Request) {
     } catch (error) {
       await conn.rollback();
       if (missingCustomerNotes(error)) return json({error:'Customer notes are not available yet.'},503);
-      if ((error as {code?: string}).code === 'ER_DUP_ENTRY') {
+      // MariaDB 11.8 can report a changed row (1020) for competing first saves.
+      // Both conflicts have rolled back and require a fresh owner read.
+      if (['ER_DUP_ENTRY','ER_CHECKREAD'].includes((error as {code?: string}).code || '')) {
         return json({error:'This note changed. Reload it before saving.'},409);
       }
       throw error;

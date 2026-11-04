@@ -17,6 +17,8 @@ assert.equal(process.env.DB_HOST,'127.0.0.1');
 assert.equal(process.env.DB_NAME,'puna_ci_synthetic');
 assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 const db=await mysql.createConnection({host:'127.0.0.1',port:Number(process.env.DB_PORT),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME,multipleStatements:true});
+// Match the established hosted database, including its inherited table collation.
+await db.query('ALTER DATABASE puna_ci_synthetic CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
 for(const [file,expected] of Object.entries(JSON.parse(readFileSync('tests/preserved-assets.json','utf8'))))assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),expected,'Preserved public asset '+file);
 const origin='https://localhost:3443';
 const appArgs=['--import', './tests/provider-fixture.mjs',...(process.env.PUNA_TEST_STANDALONE==='true'?['.next/standalone/server.js']:['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'])];
