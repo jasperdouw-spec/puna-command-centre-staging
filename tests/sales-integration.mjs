@@ -61,6 +61,10 @@ export async function runSalesChecks({db,request,check,cookie,staffCookie}){
  await check('owner source choice replaces the entire matched transaction without doubling sales',async()=>{
   const r=await report(),conflict=r.data.conflicts.find(c=>c.id==='synthetic-api-1'),before=Number(r.data.totals.net_cents);assert.equal((await post({action:'reconcile',id:conflict.id,version:conflict.version,choice:'api'})).status,200);assert.equal(Number((await report()).data.totals.net_cents),before-1400+700);assert.equal((await post({action:'reconcile',id:conflict.id,version:conflict.version,choice:'api'})).status,409);
  });
+ await check('late API changes retain old evidence and reopen a previous source decision',async()=>{
+  const before=Number((await report()).data.totals.net_cents);const r=await post({action:'backfill',start:'2025-07-01T00:00:00Z',end:'2025-07-05T00:00:00Z'});assert.equal((await post({action:'continue',id:r.data.id})).status,200);const reportData=(await report()).data;assert.equal(Number(reportData.totals.net_cents),before-700+1400);const changed=reportData.conflicts.find(c=>c.id==='synthetic-api-1');assert.equal(changed.api.net_cents,900);assert.equal(Number(changed.csv.net_cents),1400);
+  const [history]=await db.query("SELECT COUNT(*) n FROM sales_revisions WHERE entity_key='synthetic-api-1'");assert.ok(Number(history[0].n)>=2);assert.equal((await post({action:'continue',id:r.data.id})).data.state,'complete');
+ });
  await check('later CSV import quarantines previously included API facts and exposes linked totals',async()=>{
   const before=Number((await report()).data.totals.net_cents);const r=await preview([row({Date:'2025-06-02','Transaction ID':'synthetic-later-csv','Payment ID':'synthetic-pay-2'})]);assert.equal((await post({action:'import',id:r.data.id})).status,200);const result=(await report()).data;assert.equal(Number(result.totals.net_cents),before);const conflict=result.conflicts.find(c=>c.id==='synthetic-api-2');assert.equal(Number(conflict.csv.net_cents),700);assert.equal(conflict.api.net_cents,700);assert.deepEqual(conflict.matched_csv,['synthetic-later-csv']);
  });

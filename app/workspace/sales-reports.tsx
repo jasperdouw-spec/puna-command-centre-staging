@@ -1,20 +1,21 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useState,useRef} from 'react';
 import SourceReferences from './source-references';
 const money=(v:any)=>v===null||v===undefined?'Unavailable':new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}).format(Number(v)/100);
 const when=(s:any)=>s?new Date(s).toLocaleString('en-CA',{timeZone:'America/Vancouver'}):'Never';
 export default function SalesReports(){
  const [data,setData]=useState<any>(null),[from,setFrom]=useState('2023-01-01'),[to,setTo]=useState(new Date().toISOString().slice(0,10)),[group,setGroup]=useState('month');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[preview,setPreview]=useState<any>(null),[metadata,setMetadata]=useState<any>(null);
+ const requestId=useRef(0);
  const [backfill,setBackfill]=useState({start:'',end:''});
- async function load(){const r=await fetch('/api/sales?'+new URLSearchParams({from,to,group}),{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error);setData(d);}
+ async function load(){const sequence=++requestId.current;const r=await fetch('/api/sales?'+new URLSearchParams({from,to,group}),{cache:'no-store'});const d=await r.json();if(sequence!==requestId.current)return;if(!r.ok)throw Error(d.error);setData(d);}
  useEffect(()=>{void load().catch(e=>setError(e.message));},[from,to,group]);
  async function action(body:unknown){setBusy(true);setError('');setMessage('');try{const multipart=body instanceof FormData,r=await fetch('/api/sales',{method:'POST',headers:multipart?undefined:{'Content-Type':'application/json'},body:multipart?body:JSON.stringify(body)}),d=await r.json();if(!r.ok)throw Error(d.error);if(d.url){window.location.assign(d.url);return;}if(d.preview)setPreview(d);if(d.metadata||d.metadataStatus)setMetadata(d);setMessage(d.state==='pending'?'Checkpoint saved. Continue the refresh to process its next page.':d.state==='complete'?'Completed and recorded in audit history.':'Review updated.');await load();return d;}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  const t=data?.totals||{},c=data?.connection;
  return <section className="panel sales-report"><header><h2>Sales reports</h2><p>CAD · America/Vancouver · Source-tracked sales and reconciliation</p></header>
  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
  {!data?<p>Loading reporting status…</p>:!data.available?<p role="status">{data.reason} Imports and refresh are unavailable until the approved migration is applied.</p>:<>
- <div className="report-filters"><label>From<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Through<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><label>Group by<select value={group} onChange={e=>setGroup(e.target.value)}>{['day','month','product','category','location'].map(s=><option key={s} value={s}>{s}</option>)}</select></label></div>
+ <div className="report-filters"><label>From<input type="date" disabled={busy} value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Through<input type="date" disabled={busy} value={to} onChange={e=>setTo(e.target.value)}/></label><label>Group by<select aria-label="Group by" disabled={busy} value={group} onChange={e=>setGroup(e.target.value)}>{['day','month','product','category','location'].map(s=><option key={s} value={s}>{s}</option>)}</select></label></div>
  <div className="report-metrics">{[['Net sales',t.net_cents],['Gross item sales',t.gross_cents],['Discount deductions',t.discount_cents],['Item returns (already in net)',t.refund_cents],['Item tax',t.tax_cents],['Tips',data.tipsCents]].map(([k,v])=><div className="panel" key={k}><span>{k}</span><strong>{money(v)}</strong></div>)}</div>
  <p>{t.records||0} included item rows · {t.transactions||0} distinct transactions · {t.quantity||0} signed units. {data.unresolvedMappings} product mappings need review.</p>
  <p className="report-notice">Coverage is incomplete. Dates show observed records; gaps and empty periods do not establish zero sales. Net sales are not profit. Payment refunds below are separate reconciliation evidence.</p>
