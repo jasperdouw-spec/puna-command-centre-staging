@@ -293,11 +293,11 @@ try{
   assert.ok(await page.getByRole('button',{name:'Edit Synthetic browser edit',exact:true}).evaluate(e=>e===document.activeElement));
  });
  await check('sales and source recipe views show synthetic evidence on desktop and mobile',async()=>{
-  await navigateWorkspace(page,'Today');await page.getByRole('button',{name:'Sales reports',exact:true}).click();await page.getByRole('heading',{name:'Historical Square files',exact:true}).waitFor();
+  await navigateWorkspace(page,'Today');await page.getByRole('tab',{name:'Sales reports',exact:true}).click();await page.getByRole('heading',{name:'Historical Square files',exact:true}).waitFor();
   await page.getByLabel('From',{exact:true}).fill('2025-01-01');await page.getByLabel('Through',{exact:true}).fill('2025-12-31');await page.getByLabel('Group by',{exact:true}).selectOption('product');
   await page.getByText('Synthetic source recipe · recipe · requires verification',{exact:true}).click();await page.getByRole('columnheader',{name:'Source quantity',exact:true}).waitFor();
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'test-artifacts/screenshots/'+device+'-sales.png',fullPage:true});}
-  await navigateWorkspace(page,'Kitchen');await page.getByRole('button',{name:'Recipes & production',exact:true}).click();await page.getByRole('heading',{name:'Source recipes',exact:true}).waitFor();
+  await navigateWorkspace(page,'Kitchen');await page.getByRole('tab',{name:'Recipes & production',exact:true}).click();await page.getByRole('heading',{name:'Source recipes',exact:true}).waitFor();
  });
  await check('order workspace starts with real empty state and opens existing Sandbox order details',async()=>{
   await navigateWorkspace(page,'Today');await page.getByRole('heading',{name:'No active paid orders',exact:true}).waitFor();
