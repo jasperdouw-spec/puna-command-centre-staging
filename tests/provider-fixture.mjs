@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 assert.equal(process.env.GITHUB_ACTIONS,'true');assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');assert.equal(process.env.DB_NAME,'puna_ci_synthetic');assert.equal(process.env.DB_HOST,'127.0.0.1');
 import {generateKeyPairSync,sign} from 'node:crypto';
 import {order,money} from './sales-fixtures.mjs';
-Object.assign(process.env,{PUNA_SQUARE_REPORTING_ENABLED:'true',SQUARE_REPORTING_APPLICATION_ID:'synthetic-reporting-app',SQUARE_REPORTING_APPLICATION_SECRET:'synthetic-secret',SQUARE_REPORTING_MERCHANT_ID:'synthetic-merchant',SQUARE_REPORTING_LOCATION_IDS:'synthetic-location',PUNA_REPORTING_ENCRYPTION_KEY:'a'.repeat(64),PUNA_REPORTING_ORIGIN:'https://localhost:3443',SQUARE_REPORTING_START_AT:'2025-06-01T00:00:00Z'});
+Object.assign(process.env,{PUNA_SQUARE_REPORTING_ENABLED:'true',PUNA_REPORTING_SCHEDULE_ENABLED:'true',PUNA_REPORTING_JOB_TOKEN:'synthetic-reporting-job-token-32-characters',SQUARE_REPORTING_APPLICATION_ID:'synthetic-reporting-app',SQUARE_REPORTING_APPLICATION_SECRET:'synthetic-secret',SQUARE_REPORTING_MERCHANT_ID:'synthetic-merchant',SQUARE_REPORTING_LOCATION_IDS:'synthetic-location',PUNA_REPORTING_ENCRYPTION_KEY:'a'.repeat(64),PUNA_REPORTING_ORIGIN:'https://localhost:3443',SQUARE_REPORTING_START_AT:'2025-06-01T00:00:00Z'});
 const identityKeys=generateKeyPairSync('rsa',{modulusLength:2048}),jwk={...identityKeys.publicKey.export({format:'jwk'}),kid:'synthetic-ci-key',alg:'RS256',use:'sig'};
 const encode=v=>Buffer.from(JSON.stringify(v)).toString('base64url');
 

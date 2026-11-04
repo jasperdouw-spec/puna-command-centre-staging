@@ -68,4 +68,9 @@ export async function runSalesChecks({db,request,check,cookie,staffCookie}){
   const [saved]=await db.query('SELECT credentials FROM sales_connection');const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',Buffer.from('a'.repeat(64),'hex'),iv);c.setAAD(Buffer.from('puna-square-reporting-v1'));const data=Buffer.concat([c.update(JSON.stringify({accessToken:'synthetic-revoked',refreshToken:'synthetic-refresh'})),c.final()]);const enc=JSON.stringify({iv:iv.toString('base64'),tag:c.getAuthTag().toString('base64'),data:data.toString('base64')});await db.execute('UPDATE sales_connection SET credentials=?',[enc]);
   const before=(await report()).data.totals.net_cents;const p=await post({action:'backfill',start:'2025-06-01T00:00:00Z',end:'2025-06-10T00:00:00Z'});assert.equal((await post({action:'continue',id:p.data.id})).status,409);assert.equal((await report()).data.connection.failure_code,'SQUARE_ACCESS_UNAVAILABLE');assert.equal((await report()).data.totals.net_cents,before);await db.execute('UPDATE sales_connection SET credentials=?',[saved[0].credentials]);assert.equal((await post({action:'restart-cursor',id:p.data.id})).status,200);
  });
+ await check('scheduled bearer authorization continues the persisted run without an owner session',async()=>{
+  const denied=await request('/api/sales/jobs',{method:'POST',extraHeaders:{authorization:'Bearer '+String.fromCharCode(233).repeat(41)}});assert.equal(denied.status,403);
+  const r=await request('/api/sales/jobs',{method:'POST',extraHeaders:{authorization:'Bearer synthetic-reporting-job-token-32-characters'}});assert.equal(r.status,200);assert.equal(r.data.state,'pending');
+ });
+
 }

@@ -60,7 +60,7 @@ export async function commitSales(actor:number,id:string){
   await insertSalesLines(c,rows.map(r=>({key:'csv:'+r.row_hash,line:JSON.parse(r.payload)})),'csv',id,null);
   // A later CSV upload can overlap already-refreshed API data. Quarantine API
   // orders over this observed interval until an owner reconciles source identity.
-  await c.execute("UPDATE sales_api_orders o JOIN sales_details d ON d.order_id=o.id SET o.state='overlap',o.reason='CSV_RANGE_OVERLAP',o.version=o.version+1 WHERE d.source_kind='api' AND (d.local_date BETWEEN ? AND ? OR EXISTS(SELECT 1 FROM sales_details csv WHERE csv.source_kind='csv' AND (csv.transaction_id=o.id OR (csv.payment_id<>'' AND csv.payment_id=d.payment_id)))) AND o.state='included'",[p.minDate,p.maxDate]);
+  await c.execute("UPDATE sales_api_orders o JOIN sales_details d ON d.order_id=o.id SET o.state='overlap',o.reason='CSV_RANGE_OVERLAP',o.version=o.version+1 WHERE d.source_kind='api' AND (d.local_date BETWEEN ? AND ? OR EXISTS(SELECT 1 FROM sales_details csv WHERE csv.source_kind='csv' AND csv.batch_id=? AND (csv.transaction_id=o.id OR (csv.payment_id<>'' AND csv.payment_id=d.payment_id)))) AND o.state='included'",[p.minDate,p.maxDate,id]);
   await c.execute("UPDATE sales_details d JOIN sales_api_orders o ON o.id=d.order_id SET d.included=0 WHERE d.source_kind='api' AND o.state<>'included'");
   await c.query("UPDATE sales_details csv JOIN sales_api_orders o ON JSON_CONTAINS(o.matched_csv,JSON_QUOTE(csv.transaction_id)) SET csv.included=1 WHERE csv.source_kind='csv' AND o.state='overlap'");
   const [after]=await c.query<RowDataPacket[]>('SELECT COUNT(*) records,COALESCE(SUM(d.net_cents),0) net_cents FROM sales_details d JOIN historical_sales h USING(source_key) WHERE d.included=1 AND h.is_test=0');
