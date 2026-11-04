@@ -76,5 +76,19 @@ export async function runSalesChecks({db,request,check,cookie,staffCookie}){
   const denied=await request('/api/sales/jobs',{method:'POST',extraHeaders:{authorization:'Bearer '+String.fromCharCode(233).repeat(41)}});assert.equal(denied.status,403);
   const r=await request('/api/sales/jobs',{method:'POST',extraHeaders:{authorization:'Bearer synthetic-reporting-job-token-32-characters'}});assert.equal(r.status,200);assert.equal(r.data.state,'pending');
  });
+ await check('completed refresh advances its watermark while backfills and replays preserve it',async()=>{
+  const [active]=await db.query("SELECT id FROM sales_runs WHERE state<>'complete'");
+  for(const r of active)for(let i=0;i<5;i++){const p=await post({action:'continue',id:r.id});assert.equal(p.status,200);if(p.data.state==='complete')break;}
+  assert.equal((await db.query('SELECT watermark FROM sales_connection'))[0][0].watermark,null);
+  const refresh=await post({action:'refresh'});assert.equal(refresh.status,200);
+  for(let i=0;i<5;i++){const p=await post({action:'continue',id:refresh.data.id});assert.equal(p.status,200);if(p.data.state==='complete')break;}
+  const [run]=await db.execute('SELECT state,end_at FROM sales_runs WHERE id=?',[refresh.data.id]);assert.equal(run[0].state,'complete');
+  assert.equal((await db.query('SELECT watermark FROM sales_connection'))[0][0].watermark,run[0].end_at);
+  assert.equal((await post({action:'continue',id:refresh.data.id})).data.duplicate,true);
+  const historical=await post({action:'backfill',start:'2024-08-01T00:00:00.000Z',end:'2024-09-01T00:00:00.000Z'});
+  for(let i=0;i<5;i++){const p=await post({action:'continue',id:historical.data.id});assert.equal(p.status,200);if(p.data.state==='complete')break;}
+  const [empty]=await db.execute('SELECT state,pages,records FROM sales_runs WHERE id=?',[historical.data.id]);assert.equal(empty[0].state,'complete');assert.equal(empty[0].pages,2);assert.equal(empty[0].records,0);
+  assert.equal((await db.query('SELECT watermark FROM sales_connection'))[0][0].watermark,run[0].end_at);
+ });
 
 }

@@ -22,11 +22,12 @@ globalThis.fetch=async function(input,init){
   if(path==='/reporting/v1/load'){assert.equal(init.method,'POST');assert.equal(body.query.timezone,undefined);return reply({data:[{'Sales.local_reporting_timestamp.month':'2025-06-01T00:00:00.000','Sales.location_id':'synthetic-location',...Object.fromEntries(body.query.measures.map(m=>[m,m.endsWith('order_count')?1:m.endsWith('net_sales')?7:0]))}]});}
   if(path==='/v2/orders/search'){
    assert.equal(init.method,'POST');assert.deepEqual(body.location_ids,['synthetic-location']);assert.equal(body.limit,100);
+   if(body.query.filter.date_time_filter.updated_at.start_at.startsWith('2024-08-'))return reply({});
    if(body.query.filter.date_time_filter.updated_at.start_at==='2025-07-01T00:00:00Z'){const revised=order();revised.updated_at='2025-07-02T12:00:00Z';Object.assign(revised.line_items[0],{gross_sales_money:money(1000),total_tax_money:money(45),total_money:money(945)});revised.total_money=money(1045);return reply({orders:[revised]});}
    if(!body.cursor)return reply({orders:[order()],cursor:'synthetic-next'});
    assert.equal(body.cursor,'synthetic-next');return reply({orders:[order('synthetic-api-2','synthetic-pay-2','2025-06-02T20:30:00Z')]});
   }
-  if(path==='/v2/refunds'){assert.equal(init.method,'GET');return reply({refunds:[{id:'synthetic-refund-report',payment_id:'synthetic-pay-2',order_id:'synthetic-api-2',location_id:'synthetic-location',status:'COMPLETED',amount_money:money(100),created_at:'2025-06-03T12:00:00Z',updated_at:'2025-06-04T12:00:00Z',reason:'EXCLUDED REFUND NOTE'}]});}
+  if(path==='/v2/refunds'){assert.equal(init.method,'GET');if(new URL(url).searchParams.get('updated_at_begin_time')?.startsWith('2024-08-'))return reply({});return reply({refunds:[{id:'synthetic-refund-report',payment_id:'synthetic-pay-2',order_id:'synthetic-api-2',location_id:'synthetic-location',status:'COMPLETED',amount_money:money(100),created_at:'2025-06-03T12:00:00Z',updated_at:'2025-06-04T12:00:00Z',reason:'EXCLUDED REFUND NOTE'}]});}
   throw Error('Unauthorized production Square operation in synthetic fixture');
  }
  if(url==='https://www.googleapis.com/oauth2/v3/certs')return reply({keys:[jwk]});

@@ -81,7 +81,13 @@ async function advanceBoundedSalesRun(actor:number|null,id:string){
    let phase=run.phase,locationIndex=Number(run.location_index),complete=false;
    if(!cursor){if(phase==='orders')phase='refunds';else if(locationIndex+1<identity.locations.length)locationIndex++;else complete=true;}
    stage='checkpoint';await c.execute('UPDATE sales_runs SET state=?,phase=?,checkpoint_cursor=?,location_index=?,pages=pages+1,records=records+?,completed_at=IF(?,UTC_TIMESTAMP(3),NULL) WHERE id=?',[complete?'complete':'pending',phase,cursor,locationIndex,(response.orders||response.refunds||[]).length,complete?1:0,id]);
-   if(complete){stage='completion';await c.execute('UPDATE sales_connection SET last_success=UTC_TIMESTAMP(3),failure_code=NULL,watermark=IF(?=\'refresh\' AND (watermark IS NULL OR watermark<?),?,watermark) WHERE id=1',[run.kind,run.end_at,run.end_at]);stage='completion-audit';await audit(c,actor,'sales:run-completed','sales_run',id);}
+   if(complete){
+    stage='completion';await c.execute('UPDATE sales_connection SET last_success=UTC_TIMESTAMP(3),failure_code=NULL WHERE id=1');
+    // The boundary is canonical UTC ISO text. Binary ordering avoids mixing
+    // hosted statement/literal collations; a backfill never moves this watermark.
+    if(run.kind==='refresh')await c.execute('UPDATE sales_connection SET watermark=? WHERE id=1 AND (watermark IS NULL OR BINARY watermark<BINARY ?)',[run.end_at,run.end_at]);
+    stage='completion-audit';await audit(c,actor,'sales:run-completed','sales_run',id);
+   }
    stage='commit';
    return {id,state:complete?'complete':'pending',phase,pages:Number(run.pages)+1,records:Number(run.records)+(response.orders||response.refunds||[]).length};
   });
