@@ -60,3 +60,17 @@ Decision: support BOTH immediate purchases of ready-to-sell empanadas and prepai
 - Do not modify existing staging checkout-disabled mode, production Square authorization scopes, database schema or migrations without explicit separate approval. Schema design/proposal is allowed; execution is not.
 - Verify role-based access, concurrent checkout, partial batches, timer drift, stale inventory, refunds, cancellations, DST and network interruptions.
 - Update GitHub and Google Drive project documentation, maintain and verify a local Pacific Core backup; explicitly report any failed access/readback or missing checksum.
+
+## Live Kitchen — approved checkout and QR pickup refinements (2026-11-07)
+
+Owner approves ready-now and baking-order checkout/pickup proposal, plus QR pickup as the default method.
+
+- Ready-stock sample: 1 Ham & Cheese + 1 Ají Chicken, $16 CAD subtotal; calculate taxes using separately verified applicable rules, never assume rate.
+- Reserve all line items atomically in a short-lived (~5 min) stock hold before Square payment. On authoritative successful payment, convert hold to paid reservation. If any line is unavailable, do not charge for a partial order. Handle timeout, failed/uncertain payment, idempotency, webhooks and reconciliation safely.
+- Show customer pickup choices only within verified staffed hours: as soon as packed, approximately 15–30 min, or approximately 30–60 min (actual windows/food safety and holding policy require José's approval). For mixed ready+baking orders, default to one pickup after all items are staff-confirmed ready. Never promise exact bake finish.
+- In Live Kitchen, add compact pickup queue (To pack, Ready, Baking), new paid-order alert, item checklist, Pack & ready, and Handed to customer states. Ready-now orders are not advertised as ready for pickup until staff actually set aside and confirm packing.
+- After successful payment, issue unique secure QR pickup pass on order-status page and in confirmation email, with human-readable order number as fallback. Use opaque unguessable token, no personal details in QR payload, token stored/validated server-side; HTTPS and authenticated worker access required.
+- Food truck worker scans using tablet/phone camera in Live Kitchen; scan displays order, paid status, item list, pickup status. Explicit worker tap to mark handed over, with timestamp, worker attribution and audit history. Scanning alone MUST NOT redeem. Reject duplicate redemption and show already-collected warning.
+- Manual order-number/name lookup fallback for failed camera, dead phone or missing email; verify identity appropriately. Consider revocation/reissue of compromised pickup pass, offline network handling and no automatic fulfillment on stale data.
+- Customers receive payment confirmation, order-status link and staff-triggered pickup-ready notification; no automatic resale of uncollected paid food. Define late pickup/cancellation/refund policies with owner.
+- Preserve current disabled checkout, staging noindex, existing database and Square configuration. Implementation/test may be proposed on separate branch; no payment activation, schema migration, merge or deployment without explicit approval.
