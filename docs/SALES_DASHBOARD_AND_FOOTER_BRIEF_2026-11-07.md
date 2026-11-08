@@ -74,3 +74,17 @@ Owner approves ready-now and baking-order checkout/pickup proposal, plus QR pick
 - Manual order-number/name lookup fallback for failed camera, dead phone or missing email; verify identity appropriately. Consider revocation/reissue of compromised pickup pass, offline network handling and no automatic fulfillment on stale data.
 - Customers receive payment confirmation, order-status link and staff-triggered pickup-ready notification; no automatic resale of uncollected paid food. Define late pickup/cancellation/refund policies with owner.
 - Preserve current disabled checkout, staging noindex, existing database and Square configuration. Implementation/test may be proposed on separate branch; no payment activation, schema migration, merge or deployment without explicit approval.
+
+## PUNA Google Workspace and automation — approved planning scope (2026-11-07)
+
+Owner confirms domain and hosting purchased/controlled under their name. Include Google Workspace onboarding and Google services integrations in the NEXT Work session; do not create accounts or alter DNS yet.
+
+- Establish PUNA-owned Google Workspace for punaempanadas.ca, proposed primary admin@punaempanadas.ca, customer-facing hola@ and orders@ aliases, and Jose's individual mailbox only if separately needed. Confirm admin and business continuity/ownership roles with Jose. Use MFA, recovery methods, least privilege, separate accounts when independent access is needed.
+- Inspect registrar/DNS/Hostinger records and any existing mail service before changes. Domain verification, MX, SPF, DKIM, DMARC changes require explicit approval, staged rollback and send/receive tests. Preserve website, subdomains and unrelated DNS.
+- Check for an existing Google Business Profile before claiming/creating; verify eligibility, actual truck location, hours and business ownership. Set up domain property in Search Console, GA4, GTM and organized Google Drive; preserve staging noindex and only index approved production pages.
+- User wants PUNA Google services connected initially to ChatGPT via supported connected apps and, where available, API/connector tools; verify capabilities separately for Gmail, Drive, Calendar, Business Profile, Search Console, GA4 and GTM. Never assume all Google services are exposed through one ChatGPT connector.
+- Plan separate scoped OAuth/API access for Pacific Core/Atlas on Mac mini, with secrets in approved secure storage, credential rotation, auditable automation and explicit write approvals. ChatGPT desktop app is interactive orchestration, not itself guaranteed unattended scheduler. Local automation can use n8n/Atlas scheduled jobs with monitoring and failure alerts.
+- Suggested automations: inbox triage/drafts, Drive document organization and verified backups, business review monitoring and draft responses, SEO/indexing alerts, GA4 performance summaries, GTM configuration review, Square reporting freshness and reconciliation.
+- Phase work: inventory accounts/permissions and design -> Workspace creation/domain email setup with approval -> service ownership/verification -> ChatGPT connections -> local scoped automation -> monitoring and recovery tests.
+- No paid signup, DNS edits, production tracking activation, external public responses, credentials sharing, deployment or payment changes without owner approval.
+- Update PUNA Google Drive documentation and verified local Pacific Core backup when accessible, reporting failures transparently.
