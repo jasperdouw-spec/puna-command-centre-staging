@@ -88,3 +88,13 @@ Owner confirms domain and hosting purchased/controlled under their name. Include
 - Phase work: inventory accounts/permissions and design -> Workspace creation/domain email setup with approval -> service ownership/verification -> ChatGPT connections -> local scoped automation -> monitoring and recovery tests.
 - No paid signup, DNS edits, production tracking activation, external public responses, credentials sharing, deployment or payment changes without owner approval.
 - Update PUNA Google Drive documentation and verified local Pacific Core backup when accessible, reporting failures transparently.
+
+## Operating model decision — ChatGPT-first, Atlas later (2026-11-07)
+
+Approved architecture: Google Workspace is PUNA's identity/collaboration layer; PUNA database and reconciled Square ledger are operational source of truth; automation is initially supervised through ChatGPT Work/desktop on Pacific Core Mac mini, with later migration to Atlas.
+
+- Phase A (setup/testing): ChatGPT Work on Mac mini leads configuration, integration verification, test execution, documentation and supervised operational workflows. Require explicit approvals for sensitive changes. Do not claim the desktop app alone is an unattended job scheduler; use verified scheduling/integration services where recurring tasks are needed.
+- Phase B (first few months): ChatGPT remains primary operator for authorized workflows; collect structured, privacy-minimized operational logs, human corrections, exception cases, reconciliations, test outcomes and written SOPs. Evaluate reliability, latency, cost, security, and recovery. Do not train models on customer personal data without authorization and a lawful basis.
+- Phase C (Atlas handoff): Atlas learns from approved SOPs, synthetic test cases and de-identified historical examples first, then accesses live data through least-privilege, auditable APIs after explicit authorization. Run shadow mode against ChatGPT/human-reviewed results, compare discrepancies, then progressively grant low-risk tasks. Keep financial/public/customer-impacting writes approval-gated until proven safe.
+- Establish handoff criteria: repeatable test coverage, reconciled sales accuracy, no unhandled duplicate reservations, recoverable failures, role/secret separation, backup restore test, monitoring and rollback plan.
+- Preserve Google Drive documentation and verified local Pacific Core copies. Record actual status and failures rather than claiming synchronization.
