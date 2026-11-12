@@ -1,8 +1,9 @@
+import {assertSyntheticContext} from './disposable-context.mjs';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import mysql from 'mysql2/promise';
 export async function verifySyntheticRecovery(){
- assert.equal(process.env.GITHUB_ACTIONS,'true');assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');assert.equal(process.env.DB_NAME,'puna_ci_synthetic');assert.equal(process.env.DB_HOST,'127.0.0.1');
+ assertSyntheticContext();
  const container=process.env.PUNA_CI_DB_CONTAINER;assert.match(container||'',/^[a-f0-9]{64}$/);
  const admin=await mysql.createConnection({host:'127.0.0.1',port:Number(process.env.DB_PORT),user:'root',password:'synthetic-ci-root-only',multipleStatements:true});
  const target='puna_ci_restore';

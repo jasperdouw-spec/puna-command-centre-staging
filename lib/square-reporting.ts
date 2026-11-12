@@ -27,7 +27,7 @@ function decrypt(text:string){const r=JSON.parse(text),cipher=createDecipheriv('
 // no create/update/cancel/payment/refund/catalogue mutation is reachable here.
 export async function squareRead(path:string,token:string|null,body?:unknown){
  const pathname=path.split('?')[0];
- const permitted=(pathname==='/v2/orders/search'&&body!==undefined)||(['/oauth2/token','/oauth2/token/status'].includes(pathname)&&body!==undefined)||(/^\/v2\/(merchants\/[A-Za-z0-9_-]+|locations|refunds)$/.test(pathname)&&body===undefined)||(pathname==='/reporting/v1/meta'&&body===undefined)||(pathname==='/reporting/v1/load'&&body!==undefined);
+ const permitted=(pathname==='/v2/orders/search'&&body!==undefined)||(['/oauth2/token','/oauth2/token/status'].includes(pathname)&&body!==undefined)||(/^\/v2\/(merchants\/[A-Za-z0-9_-]+|orders\/[A-Za-z0-9_-]+|locations|refunds)$/.test(pathname)&&body===undefined)||(pathname==='/reporting/v1/meta'&&body===undefined)||(pathname==='/reporting/v1/load'&&body!==undefined);
  if(!permitted||path.includes('://')||path.includes('#'))throw new SalesError('SQUARE_OPERATION_DENIED',403);
  for(let attempt=0;attempt<3;attempt++){
   try{

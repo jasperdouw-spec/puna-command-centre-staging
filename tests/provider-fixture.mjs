@@ -1,6 +1,8 @@
+import {assertSyntheticContext} from './disposable-context.mjs';
 // CI-only interception of outbound provider traffic. Never selected by application configuration.
 import assert from 'node:assert/strict';
-assert.equal(process.env.GITHUB_ACTIONS,'true');assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');assert.equal(process.env.DB_NAME,'puna_ci_synthetic');assert.equal(process.env.DB_HOST,'127.0.0.1');
+import {readFileSync} from 'node:fs';
+assertSyntheticContext();
 import {generateKeyPairSync,sign} from 'node:crypto';
 import {order,money} from './sales-fixtures.mjs';
 Object.assign(process.env,{PUNA_SQUARE_REPORTING_ENABLED:'true',PUNA_REPORTING_SCHEDULE_ENABLED:'true',PUNA_REPORTING_JOB_TOKEN:'synthetic-reporting-job-token-32-characters',SQUARE_REPORTING_APPLICATION_ID:'synthetic-reporting-app',SQUARE_REPORTING_APPLICATION_SECRET:'synthetic-secret',SQUARE_REPORTING_MERCHANT_ID:'synthetic-merchant',SQUARE_REPORTING_LOCATION_IDS:'synthetic-location',PUNA_REPORTING_ENCRYPTION_KEY:'a'.repeat(64),PUNA_REPORTING_ORIGIN:'https://localhost:3443',SQUARE_REPORTING_START_AT:'2025-06-01T00:00:00Z'});
@@ -20,6 +22,7 @@ globalThis.fetch=async function(input,init){
   if(path==='/v2/locations')return reply({locations:[{id:'synthetic-location',name:'Synthetic location',status:'ACTIVE',country:'CA',currency:'CAD',timezone:'America/Vancouver'}]});
   if(path==='/reporting/v1/meta')return reply({cubes:[{name:'Sales',type:'view',measures:['net_sales','order_count','top_line_product_sales','discounts_amount','itemized_returns','refunds_by_amount_amount','tips_amount','sales_tax_amount','total_collected_amount'].map(n=>({name:'Sales.'+n,type:'number'})),dimensions:[{name:'Sales.local_reporting_timestamp',type:'time'},{name:'Sales.location_id',type:'string'}],segments:[]}]});
   if(path==='/reporting/v1/load'){assert.equal(init.method,'POST');assert.equal(body.query.timezone,undefined);return reply({data:[{'Sales.local_reporting_timestamp.month':'2025-06-01T00:00:00.000','Sales.location_id':'synthetic-location',...Object.fromEntries(body.query.measures.map(m=>[m,m.endsWith('order_count')?1:m.endsWith('net_sales')?7:0]))}]});}
+  if(/^\/v2\/orders\/pos-[A-Za-z0-9_-]+$/.test(path)){assert.equal(init.method,'GET');return reply({order:JSON.parse(readFileSync(new URL('../test-artifacts/pos-provider.json',import.meta.url),'utf8'))[path.split('/').pop()]});}
   if(path==='/v2/orders/search'){
    assert.equal(init.method,'POST');assert.deepEqual(body.location_ids,['synthetic-location']);assert.equal(body.limit,100);
    if(body.query.filter.date_time_filter.updated_at.start_at.startsWith('2024-08-'))return reply({});

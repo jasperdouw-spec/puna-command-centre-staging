@@ -1,0 +1,3 @@
+import {pageMetadata} from '@/lib/site-metadata';
+export const metadata=pageMetadata('Page not found | PUNA','Find your way back to the PUNA menu and food truck in Ucluelet.');
+export default function NotFound(){return <main className="public-state"><img src="/puna-official-logo.svg" width="88" height="88" alt="PUNA"/><p>404 · A little off the trail</p><h1>Let’s get you<br/>back to PUNA.</h1><p>We couldn’t find this page. The menu and truck information are just around the corner.</p><nav aria-label="Find your way back"><a href="/">PUNA home</a><a href="/#menu">Explore the menu</a><a href="/#pickup">Truck pickup</a></nav></main>}

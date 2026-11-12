@@ -1,8 +1,9 @@
+import {assertSyntheticContext} from './disposable-context.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import ts from 'typescript';
 import {headers,row,csv,order,money} from './sales-fixtures.mjs';
-assert.equal(process.env.GITHUB_ACTIONS,'true');assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
+assertSyntheticContext({database:false});
 mkdirSync('.domain-tests',{recursive:true});
 for(const name of ['sales-model','square-reporting-model'])writeFileSync('.domain-tests/'+name+'.mjs',ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8').replaceAll("'./sales-model'","'./sales-model.mjs'"),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
 const {previewCsv,decimalUnits,csvRecords,localDay,hash}=await import('../.domain-tests/sales-model.mjs');

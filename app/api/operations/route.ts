@@ -1,3 +1,4 @@
+import {boundedArray} from '@/lib/bounded-array';
 import {z} from 'zod';
 import {randomUUID} from 'node:crypto';
 import type {RowDataPacket} from 'mysql2';
@@ -31,7 +32,7 @@ export async function GET(){
 }
 const operation=z.discriminatedUnion('action',[
  z.object({action:z.literal('stock'),key:z.string().uuid(),id:z.string().max(64),location:z.enum(['truck','factory']),stage:z.enum(['ingredient','frozen','baking','ready','portion','packaged']),quantity:z.number().int().min(0).max(100000),version:z.number().int().positive(),kind:z.enum(['opening','receipt','waste','adjustment','transfer']),reason:z.string().trim().min(5).max(500),toLocation:z.enum(['truck','factory']).optional()}).strict(),
- z.object({action:z.literal('capacity'),configuration:capacityConfig,effectiveAt:z.string().datetime(),dates:z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(30)}).strict(),
+ z.object({action:z.literal('capacity'),configuration:capacityConfig,effectiveAt:z.string().datetime(),dates:boundedArray(z.string().regex(/^\d{4}-\d{2}-\d{2}$/),30,0)}).strict(),
  z.object({action:z.literal('batch'),id:z.string().uuid(),version:z.number().int().positive(),transition:z.enum(['close','load','ready','pause'])}).strict(),
  z.object({action:z.literal('collect'),id:z.string().uuid(),receiptKey:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
  z.object({action:z.literal('notice'),batchId:z.string().uuid().nullable(),kind:z.enum(['shortage','late','pause','stock','payment']),message:z.string().trim().min(5).max(1000)}).strict(),

@@ -88,7 +88,7 @@ export async function progressBatch(actor:number,id:string,version:number,action
 }
 export async function collectOrder(actor:number,id:string,receiptKey:string){
  return transaction(async(c)=>{
-  const [rows]=await c.execute<RowDataPacket[]>('SELECT * FROM pickup_orders WHERE id=? AND receipt_hash=? FOR UPDATE',[id,digest(receiptKey)]);const o=rows[0];
+  const [rows]=await c.execute<RowDataPacket[]>('SELECT * FROM pickup_orders WHERE id=? AND receipt_hash=? AND batch_id IS NOT NULL FOR UPDATE',[id,digest(receiptKey)]);const o=rows[0];
   if(!o)throw new CommerceError('ORDER_NOT_FOUND',404);
   if(o.payment_status!=='paid'||o.refund_status!=='none'||o.fulfilment_status!=='ready'||o.order_status!=='open')throw new CommerceError('COLLECTION_NOT_ELIGIBLE');
   const [lines]=await c.execute<RowDataPacket[]>('SELECT * FROM pickup_order_lines WHERE order_id=? ORDER BY product_id',[id]);

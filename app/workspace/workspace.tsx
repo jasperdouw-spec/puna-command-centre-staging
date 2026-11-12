@@ -6,6 +6,7 @@ import ProductWorkspace from './products';
 import WebsiteEditor from './website';
 import Accounts from './accounts';
 import Operations from './operations';
+import LiveKitchen from '../live-kitchen/live-kitchen';
 import GoogleLink from './google-link';
 import Records from './records';
 import Customers from './customers';
@@ -44,7 +45,7 @@ function fromLocation(): Selection {
   return {section, tab};
 }
 
-export default function PunaWorkspace({displayName = 'Owner'}: {displayName?: string}) {
+export default function PunaWorkspace({displayName = 'Owner', liveKitchen = false}: {displayName?: string; liveKitchen?: boolean}) {
   const [section, setSection] = useState<Section>('today');
   const [tabs, setTabs] = useState(initialTabs);
   const [visited, setVisited] = useState<string[]>([]);
@@ -137,7 +138,7 @@ export default function PunaWorkspace({displayName = 'Owner'}: {displayName?: st
             <section hidden={section !== 'orders'} aria-label="Orders workspace">{seen('orders') && <WorkspaceDesk section="orders" onKitchen={() => navigate('kitchen', 'pickup')}/>}</section>
             <section hidden={section !== 'customers'} aria-label="Customers workspace">{seen('customers') && <Customers/>}</section>
             <section hidden={section !== 'menu'} aria-label="Menu workspace">{seen('menu') && <ProductWorkspace/>}</section>
-            <section hidden={section !== 'kitchen'} aria-label="Kitchen workspace">{seen('kitchen') && <>{groupTabs('kitchen')}{tabPanel('kitchen', 'pickup', <Operations section="Food Truck"/>)}{tabPanel('kitchen', 'inventory', <Operations section="Inventory"/>)}{tabPanel('kitchen', 'recipes', <Records section="Production"/>)}</>}</section>
+            <section hidden={section !== 'kitchen'} aria-label="Kitchen workspace">{seen('kitchen') && <>{groupTabs('kitchen')}{tabPanel('kitchen', 'pickup', liveKitchen?<><LiveKitchen/><details><summary>Detailed tools & legacy pickups</summary><Operations section="Food Truck"/></details></>:<Operations section="Food Truck"/>)}{tabPanel('kitchen', 'inventory', <Operations section="Inventory"/>)}{tabPanel('kitchen', 'recipes', <Records section="Production"/>)}</>}</section>
             <section hidden={section !== 'website'} aria-label="Website workspace">{seen('website') && <WebsiteEditor/>}</section>
             <section hidden={section !== 'settings'} aria-label="Team and settings workspace">{seen('settings') && <>{groupTabs('settings')}{tabPanel('settings', 'team', <><Accounts/><GoogleLink/></>)}{tabPanel('settings', 'schedule', <Operations section="Settings"/>)}{tabPanel('settings', 'feedback', <Operations section="Feedback"/>)}{tabPanel('settings', 'audit', <Operations section="Audit"/>)}</>}</section>
           </>}

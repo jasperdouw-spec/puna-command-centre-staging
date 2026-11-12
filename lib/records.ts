@@ -1,3 +1,4 @@
+import {boundedArray} from './bounded-array';
 import 'server-only';
 import {z} from 'zod';
 import {randomUUID} from 'node:crypto';
@@ -29,7 +30,7 @@ export const commerceFields=z.object({id:z.string().max(64),version:z.number().i
 export async function saveCommerce(actor:number,p:z.infer<typeof commerceFields>){
  return transaction(async c=>{const [r]=await c.execute('UPDATE commerce_products SET publication=?,price_confirmed=?,ingredients_confirmed=?,tax_rules=?,deposit_cents=?,packing_seconds=?,version=version+1 WHERE product_id=? AND version=?',[p.publication,p.priceConfirmed,p.ingredientsConfirmed,p.taxRules===null?null:JSON.stringify(p.taxRules),p.depositCents,p.packingSeconds,p.id,p.version]);if(!(r as {affectedRows:number}).affectedRows)throw new CommerceError('PRODUCT_CHANGED');await audit(c,actor,'commerce:configure','product',p.id);return {version:p.version+1};});
 }
-export const recipeInput=z.object({id:z.string().max(64),baseVersion:z.number().int().min(0),name:z.string().min(1).max(120),yieldUnits:z.number().int().positive().nullable(),ingredients:z.array(z.object({id:z.string().max(64),quantity:z.number().positive(),unit:z.enum(['g','ml','each']),sourceValue:z.string().max(500)}).strict()).max(100),labourMinutes:z.number().nonnegative().nullable(),labourRateCents:z.number().int().nonnegative().nullable(),packagingCents:z.number().int().nonnegative().nullable(),sourceReference:z.string().url().max(500),sourceHash:z.string().regex(/^[a-f0-9]{64}$/),verified:z.boolean()}).strict();
+export const recipeInput=z.object({id:z.string().max(64),baseVersion:z.number().int().min(0),name:z.string().min(1).max(120),yieldUnits:z.number().int().positive().nullable(),ingredients:boundedArray(z.object({id:z.string().max(64),quantity:z.number().positive(),unit:z.enum(['g','ml','each']),sourceValue:z.string().max(500)}).strict(),100,0),labourMinutes:z.number().nonnegative().nullable(),labourRateCents:z.number().int().nonnegative().nullable(),packagingCents:z.number().int().nonnegative().nullable(),sourceReference:z.string().url().max(500),sourceHash:z.string().regex(/^[a-f0-9]{64}$/),verified:z.boolean()}).strict();
 export async function saveRecipe(actor:number,p:z.infer<typeof recipeInput>){
  return transaction(async c=>{const [versions]=await c.execute<RowDataPacket[]>('SELECT COALESCE(MAX(version),0) AS v FROM recipe_versions WHERE product_id=?',[p.id]);if(Number(versions[0].v)!==p.baseVersion)throw new CommerceError('RECIPE_CHANGED');
  if(p.verified&&(!p.yieldUnits||!p.ingredients.length||new Set(p.ingredients.map(i=>i.id)).size!==p.ingredients.length))throw new CommerceError('RECIPE_INCOMPLETE');

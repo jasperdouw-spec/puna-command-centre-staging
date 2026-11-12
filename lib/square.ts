@@ -48,6 +48,7 @@ export async function startPayment(id:string,key:string,sourceToken:string){
  if(!commerceEnabled())throw new CommerceError('SANDBOX_NOT_CONFIGURED',503);
  const data=await transaction(async(c,now)=>{
   const o=await orderAccess(c,id,key,true);
+  if(o.batch_id===null)throw new CommerceError('USE_KITCHEN_ORDER_PATH');
   if(o.payment_status==='paid')return {existing:true,o};
   if(o.payment_status!=='unpaid')throw new CommerceError('PAYMENT_RECONCILIATION_REQUIRED');
   const [bs]=await c.execute<RowDataPacket[]>('SELECT * FROM service_batches WHERE id=? FOR UPDATE',[o.batch_id]);
@@ -107,7 +108,7 @@ export async function handleWebhook(raw:string,signature:string|null){
 export async function sandboxRefund(id:string,actor:number,amount:number,reason:string){
  const r=await transaction(async(c,now)=>{
   const [rows]=await c.execute<RowDataPacket[]>('SELECT * FROM pickup_orders WHERE id=? FOR UPDATE',[id]);const o=rows[0];
-  if(!o||!o.is_test||o.payment_status!=='paid'||o.refund_status!=='none'||amount!==Number(o.total_cents)||o.fulfilment_status==='collected')throw new CommerceError('REFUND_NOT_ELIGIBLE');
+  if(!o||o.batch_id===null||!o.is_test||o.payment_status!=='paid'||o.refund_status!=='none'||amount!==Number(o.total_cents)||o.fulfilment_status==='collected')throw new CommerceError('REFUND_NOT_ELIGIBLE');
   const refundId=randomUUID();await c.execute('INSERT INTO refunds(id,order_id,amount_cents,reason,requested_by) VALUES(?,?,?,?,?)',[refundId,id,amount,reason,actor]);
   await c.execute("UPDATE pickup_orders SET refund_status='pending',order_status='exception',version=version+1 WHERE id=?",[id]);
   await c.execute("INSERT INTO provider_jobs(id,kind,order_id,available_at,operation_key) VALUES(?,'refund',?,?,?)",[randomUUID(),id,sqlDate(now),'refund:'+refundId]);

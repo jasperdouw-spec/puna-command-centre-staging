@@ -1,8 +1,11 @@
+import {boundedArray} from '@/lib/bounded-array';
 import {z} from 'zod';
 import type {RowDataPacket} from 'mysql2';
 import {checkOrigin,requireRole} from '@/lib/auth';
 import {json,failure} from '@/lib/http';
 import {database} from '@/lib/db';
+import {salesDashboard} from '@/lib/sales-dashboard';
+import {today} from '@/lib/sales-periods';
 import {SalesError,validDay} from '@/lib/sales-model';
 import {prepareSales,commitSales,salesReport,mapSalesProduct,reportingAvailable,referenceInput,prepareReferences,commitReferences,referenceRecords} from '@/lib/sales';
 import {beginSquareAuthorization,inspectSquareAccess,captureSquareReport} from '@/lib/square-reporting';
@@ -20,7 +23,7 @@ const input=z.discriminatedUnion('action',[
  z.object({action:z.literal('continue'),id:z.string().uuid()}).strict(),
  z.object({action:z.literal('restart-cursor'),id:z.string().uuid()}).strict(),
  z.object({action:z.literal('reconcile'),id:z.string().min(1).max(191),version:z.number().int().positive(),choice:z.enum(['csv','api'])}).strict(),
- z.object({action:z.literal('preview-references'),items:z.array(referenceInput).min(1).max(50)}).strict(),
+ z.object({action:z.literal('preview-references'),items:boundedArray(referenceInput,50,1)}).strict(),
  z.object({action:z.literal('import-references'),id:hex}).strict()
 ]);
 function error(e:unknown){return e instanceof SalesError?json({error:e.code},e.status):e instanceof z.ZodError||e instanceof SyntaxError||e instanceof TypeError?json({error:'Invalid reporting input'},400):failure(e);}
@@ -31,6 +34,7 @@ async function boundedBody(req:Request,max:number){
 }
 export async function GET(req:Request){try{
  await requireRole(['owner']);const q=new URL(req.url).searchParams;
+ if(q.get('view')==='dashboard'){const kind=z.enum(['day','week','month']).parse(q.get('period')||'day'),date=day.parse(q.get('date')||today()),product=q.get('product')?hex.parse(q.get('product')):undefined;if(date>today()||date<'2000-01-01')throw new SalesError('INVALID_DATE_RANGE');return json(await salesDashboard(kind,date,product));}
  if(q.get('references')==='true')return json({references:await referenceRecords()});
  if(q.has('batch')){
   const id=hex.parse(q.get('batch'));const [rows]=await database().execute<RowDataPacket[]>('SELECT file_hash,source_row,error_code FROM sales_stage WHERE batch_id=? AND error_code IS NOT NULL ORDER BY ordinal LIMIT 100',[id]);return json({rejections:rows,limit:100});

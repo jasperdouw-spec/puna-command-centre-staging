@@ -1,8 +1,9 @@
+import {boundedArray} from './bounded-array';
 import {z} from 'zod';
-export const cartInput=z.array(z.object({id:z.string().min(1).max(64),quantity:z.number().int().min(1).max(100)}).strict()).min(1).max(30).superRefine((v,c)=>{if(new Set(v.map(i=>i.id)).size!==v.length)c.addIssue({code:'custom',message:'Duplicate products'});});
+export const cartInput=boundedArray(z.object({id:z.string().min(1).max(64),quantity:z.number().int().min(1).max(100)}).strict(),30,1).superRefine((v,c)=>{if(new Set(v.map(i=>i.id)).size!==v.length)c.addIssue({code:'custom',message:'Duplicate products'});});
 export type CartInput=z.infer<typeof cartInput>;
 export type TaxRule={name:string;basis_points:number;deposit_taxable?:boolean};
-export const taxRules=z.array(z.object({name:z.string().min(1).max(40),basis_points:z.number().int().min(0).max(10000),deposit_taxable:z.boolean().optional()}).strict()).max(5);
+export const taxRules=boundedArray(z.object({name:z.string().min(1).max(40),basis_points:z.number().int().min(0).max(10000),deposit_taxable:z.boolean().optional()}).strict(),5,0);
 export type SaleProduct={id:string;name:string;price_cents:number;available:boolean;kind:string;category:'empanada'|'sauce'|'drink';publication:string;price_confirmed:boolean;ingredients_confirmed:boolean;tax_rules:TaxRule[]|null;deposit_cents:number|null;oven_units:number;packing_seconds:number|null;physical_units:number;committed_units:number;known:boolean;version:number};
 export class CommerceError extends Error{constructor(public code:string,public status=409){super(code)}}
 export function integer(value:number){if(!Number.isSafeInteger(value)||value<0)throw new CommerceError('INVALID_AMOUNT',400);return value}
@@ -32,14 +33,16 @@ export const capacityConfig=z.object({
  counterReserve:z.number().int().min(0).max(2000),maxItems:z.number().int().min(1).max(100),
  holdSeconds:z.number().int().min(30).max(600),horizonDays:z.number().int().min(1).max(30),
  safetyStock:z.number().int().min(0).max(10000),
- services:z.array(z.object({weekday:z.number().int().min(0).max(6),staffStart:z.string().regex(/^\d{2}:\d{2}$/),firstBake:z.string().regex(/^\d{2}:\d{2}$/),lastPickup:z.string().regex(/^\d{2}:\d{2}$/)}).strict()).max(14),
- closedDates:z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(100),
- downtime:z.array(z.object({from:z.string().datetime(),until:z.string().datetime()}).strict()).max(100),
+ services:boundedArray(z.object({weekday:z.number().int().min(0).max(6),staffStart:z.string().regex(/^\d{2}:\d{2}$/),firstBake:z.string().regex(/^\d{2}:\d{2}$/),lastPickup:z.string().regex(/^\d{2}:\d{2}$/)}).strict(),14,0),
+ closedDates:boundedArray(z.string().regex(/^\d{4}-\d{2}-\d{2}$/),100,0),
+ downtime:boundedArray(z.object({from:z.string().datetime(),until:z.string().datetime()}).strict(),100,0),
  paused:z.boolean(),verified:z.boolean()
 }).strict().superRefine((c,x)=>{if(c.packingMinutes+c.handoffMinutes>c.cycleMinutes+c.turnaroundMinutes)x.addIssue({code:'custom',message:'Packing and handoff must fit between successive batches'});if(c.packingCapacitySeconds>c.packingMinutes*60)x.addIssue({code:'custom',message:'Packing capacity exceeds staffed time'});if(c.counterReserve>=c.ovenCount*c.piecesPerOven)x.addIssue({code:'custom',message:'Counter reserve must leave online capacity'});});
 export type CapacityConfig=z.infer<typeof capacityConfig>;
 const localFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Vancouver',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
-export function localParts(time:number){const p=Object.fromEntries(localFormat.formatToParts(time).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));return p.year+'-'+p.month+'-'+p.day+'T'+p.hour+':'+p.minute}
+// B.C. ended seasonal clock changes in March 2026; older ICU releases still fall back.
+const pacificFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'Etc/GMT+7',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+export function localParts(time:number){const p=Object.fromEntries((time>=Date.parse('2026-03-09T07:00:00Z')?pacificFormat:localFormat).formatToParts(time).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));return p.year+'-'+p.month+'-'+p.day+'T'+p.hour+':'+p.minute}
 export function localInstant(date:string,time:string){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time))throw new CommerceError('INVALID_LOCAL_TIME',400);
  const nominal=Date.parse(date+'T'+time+':00Z');if(!Number.isFinite(nominal))throw new CommerceError('INVALID_LOCAL_TIME',400);

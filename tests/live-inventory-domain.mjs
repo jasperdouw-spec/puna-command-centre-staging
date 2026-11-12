@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+const module=async name=>import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64'));
+const {adjustment,freeReady,remainingMinutes}=await module('kitchen-model'),{posQuantities,posDelta}=await module('kitchen-square-model');let n=0;function test(name,fn){fn();n++;console.log('PASS live inventory '+name);}
+const lot={id:'a',online_ready:2,truck_ready:1,online_baking:4,truck_baking:2},paid={channel:'online',state:'paid',lines:[{lotId:'a',quantity:2,readyUnits:2}]};
+test('display subtraction leaves held food intact and removes free truck food',()=>{assert.equal(adjustment(lot,[paid],'ready',-1).truck_ready,0);assert.equal(adjustment(lot,[paid],'ready',-1).online_ready,2);});
+test('all-held display cannot be decremented or become negative',()=>assert.throws(()=>adjustment({...lot,truck_ready:0},[paid],'ready',-1)));
+test('one-tap counted food becomes ready once',()=>{const r=adjustment(lot,[paid],'ready',1);assert.equal(freeReady(r,[paid]),1);assert.equal(r.online_baking,4);});
+test('oven adjustments never change ready food',()=>{const r=adjustment(lot,[paid],'baking',1);assert.equal(r.online_baking,5);assert.equal(r.online_ready,2);});
+test('invalid deltas and overflow cannot enter ledger',()=>{for(const x of [0,2,-2,NaN,.5])assert.throws(()=>adjustment(lot,[],'ready',x));assert.throws(()=>adjustment({...lot,online_ready:500,truck_ready:0},[],'ready',1));});
+test('elapsed oven timer stays informational',()=>{assert.equal(remainingMinutes('2026-11-12T10:00:00Z',Date.parse('2026-11-12T10:01:00Z')),0);assert.equal(freeReady({...lot,online_ready:0},[]),0);});
+test('timer rounds up and handles next-day batches',()=>assert.equal(remainingMinutes('2026-11-13T00:01:00Z',Date.parse('2026-11-12T23:59:01Z')),2));
+const order={id:'sq',version:1,state:'COMPLETED',line_items:[{catalog_object_id:'v1',quantity:'2.0'}]},mapping=[{variationId:'v1',productId:'carne',units:4}];
+test('Square variations map explicit pack quantities',()=>assert.deepEqual(posQuantities(order,mapping),{carne:8}));
+test('unmapped and fractional Square lines fail closed',()=>{assert.throws(()=>posQuantities(order,[]),/UNMAPPED/);assert.throws(()=>posQuantities({...order,line_items:[{catalog_object_id:'v1',quantity:'1.5'}]},mapping));});
+test('incomplete Square orders cannot consume food',()=>assert.throws(()=>posQuantities({...order,state:'OPEN'},mapping)));
+test('Square retry delta is zero',()=>assert.deepEqual(posDelta({carne:8},{carne:8}),{remove:{},review:false}));
+test('Square later revision consumes only additional units',()=>assert.deepEqual(posDelta({carne:9},{carne:8}),{remove:{carne:1},review:false}));
+test('refund or cancellation never restocks food automatically',()=>assert.deepEqual(posDelta({carne:3},{carne:8}),{remove:{},review:true}));
+test('invalid provider versions and pack counts are rejected',()=>{assert.throws(()=>posQuantities({...order,version:0},mapping));assert.throws(()=>posQuantities(order,[{...mapping[0],units:0}]));});
+console.log('RESULT '+n+' live inventory checks passed');

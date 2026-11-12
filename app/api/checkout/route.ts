@@ -1,3 +1,5 @@
+import {orderingLocal} from '@/lib/ordering-gates';
+import {orderingGet,orderingPost} from '@/lib/ordering-api';
 import {z} from 'zod';
 import {checkOrigin} from '@/lib/auth';
 import {json,failure} from '@/lib/http';
@@ -13,8 +15,9 @@ const payload=z.discriminatedUnion('action',[
  z.object({action:z.literal('pay'),id,accessKey:key,sourceToken:z.string().min(1).max(500)}).strict(),
  z.object({action:z.literal('receipt'),id,accessKey:key}).strict()
 ]);
-export async function GET(){return json({mode:commerceEnabled()?'square-sandbox':'disabled',applicationId:commerceEnabled()?process.env.SQUARE_SANDBOX_APPLICATION_ID:null,locationId:commerceEnabled()?process.env.SQUARE_SANDBOX_LOCATION_ID:null,pickup:'truck',currency:'CAD',timezone:'America/Vancouver'});}
+export async function GET(req:Request){if(orderingLocal())return orderingGet(req);return json({mode:commerceEnabled()?'square-sandbox':'disabled',applicationId:commerceEnabled()?process.env.SQUARE_SANDBOX_APPLICATION_ID:null,locationId:commerceEnabled()?process.env.SQUARE_SANDBOX_LOCATION_ID:null,pickup:'truck',currency:'CAD',timezone:'America/Vancouver'});}
 export async function POST(req:Request){
+ if(orderingLocal())return orderingPost(req);
  if(!checkOrigin(req))return json({error:'Invalid origin'},403);
  try{
   const raw=await req.text();if(raw.length>12000)return json({error:'Request too large'},413);
@@ -23,7 +26,7 @@ export async function POST(req:Request){
   if(!allowed)return json({error:'Please wait before trying again'},429);
   if(p.action==='quote')return json(await checkoutQuote(p.cart));
   if(p.action==='receipt')return json(await transaction(async(c)=>{
-   const o=await orderAccess(c,p.id,p.accessKey);
+   const o=await orderAccess(c,p.id,p.accessKey);if(o.batch_id===null)throw new CommerceError('USE_KITCHEN_ORDER_PATH');
    const [lines]=await c.execute<RowDataPacket[]>('SELECT name,quantity,unit_price_cents,tax_cents,deposit_cents FROM pickup_order_lines WHERE order_id=?',[o.id]);
    const [batches]=await c.execute<RowDataPacket[]>('SELECT pickup_at,pickup_until FROM service_batches WHERE id=?',[o.batch_id]);
    return {id:o.id,paymentStatus:o.payment_status,refundStatus:o.refund_status,orderStatus:o.order_status,fulfilmentStatus:o.fulfilment_status,subtotalCents:o.subtotal_cents,taxCents:o.tax_cents,depositCents:o.deposit_cents,totalCents:o.total_cents,currency:'CAD',isTest:!!o.is_test,pickup:'Puna food truck',pickupAt:new Date(batches[0].pickup_at).toISOString(),pickupUntil:new Date(batches[0].pickup_until).toISOString(),lines,receiptDelivery:'not configured'};
