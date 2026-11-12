@@ -4,7 +4,7 @@ This candidate extends the November 9 release source (`960f655` documentation ch
 
 ## Design baseline and additions
 
-The public staging homepage was inspected in Chrome before development at the existing desktop viewport and a 390 × 844 mobile viewport. Screenshots are in the session evidence. Arial/Helvetica sans serif; charcoal background, cream panels, amber buttons; existing logo, mountain empanada hero, baking tray, trailer, surf and apple photographs. Existing responsive breakpoints are 1100 px and 700 px; mobile navigation compacts and the bag remains sticky. Existing public CSS, approved photos, logo, navigation, Story and unrelated page structures are unchanged.
+The public staging homepage was inspected in Chrome before development at the existing desktop viewport and a 390 × 844 mobile viewport. Baseline screenshots were captured in the session; portable synthetic baseline and comparison images are retained with CI evidence. Arial/Helvetica sans serif; charcoal background, cream panels, amber buttons; existing logo, mountain empanada hero, baking tray, trailer, surf and apple photographs. Existing responsive breakpoints are 1100 px and 700 px; mobile navigation compacts and the bag remains sticky. Existing public CSS, approved photos, logo, navigation, Story and unrelated page structures are unchanged.
 
 The optional cabinet extends the existing `Availability` component and uses those tokens/photos. Shared kitchen photos are labelled as kitchen photos, not claimed as separate product portraits. Product IDs, names and prices come from the existing products/commerce publication records. Cards show known/unknown stock, ready quantity, sold-out and low-stock status, multiple oven estimates, accessible quantity controls and a gated add-to-order action. The existing cart storage is reused. Stock expires locally after 15 seconds without a fresh response and on offline/error events; the server independently checks heartbeat/review and stock at checkout.
 
@@ -18,7 +18,7 @@ All stock mutations use the existing MariaDB transaction/advisory lock and state
 
 Cart additions do not reserve food. Local checkout reserves the entire ready basket atomically, with expiry and idempotency. Confirmed failure releases stock; pending/uncertain payments remain protected until reconciliation. Existing staged payment, pickup token, role/CSRF and handover flows are retained. The local simulation requires exact loopback/disposable database and secret gates. It cannot be enabled on hosting merely by toggling checkout. Real payments are not implemented by the new cabinet and remain a release gate.
 
-Polling: kitchen and cabinet every 5 seconds; one in-flight mutation; 30-second staff heartbeat, 90-second heartbeat expiry, 15-minute physical review. Disconnect blocks edits, no offline queue or automatic retry. Reconnect fetches authoritative state and requires review. The device control agent is separate and holds no order or inventory authority.
+Polling: kitchen and cabinet every 5 seconds; one in-flight mutation; 30-second staff heartbeat, 90-second heartbeat expiry, 15-minute physical review. Requests time out after eight seconds; older responses cannot replace a newer snapshot. Disconnect blocks edits, no offline queue or automatic retry. Reconnect fetches authoritative state and requires review. The device control agent is separate and holds no order or inventory authority.
 
 ## API additions
 
@@ -44,7 +44,7 @@ Relevant primary references: https://developer.squareup.com/docs/inventory-api/w
 
 ## Migration and rollback
 
-Never apply a seed, reset or migration at startup/build. Existing kitchen/ordering proposals are retained; the hosted November 9 record reported 45 tables, with these proposals unapplied. Current hosted schema must be inspected again before deployment. Apply only to a newly created disposable database for testing. Hosted activation requires a current native encrypted backup, verified isolated restore, schema/ledger preflight and reviewed additive migration. Keep ordering, POS and fixtures disabled.
+Never apply a seed, reset or migration at startup/build. Existing kitchen/ordering proposals are retained; the hosted November 9 record reported 45 tables, with these proposals unapplied. Read-only phpMyAdmin inspection on November 12 confirmed 45 existing tables, no kitchen extension tables, and two migration ledger rows. A fresh native Hostinger files-and-databases backup completed at 2026-11-11 23:37 Pacific. This backup creation is verified; a fresh private-data restore has not been performed in this session. Apply only to a newly created disposable database for testing. Hosted activation requires a current native encrypted backup, verified isolated restore, schema/ledger preflight and reviewed additive migration. Keep ordering, POS and fixtures disabled.
 
 Rollback is application/feature-off: disable intake, reconcile existing holds and paid obligations, disable the cabinet/kitchen only after continuity is secured, restore the verified prior application archive. Retain ledger and audit tables. Never drop tables or restore an older database over newer business orders as an application rollback. No destructive down migration is supplied.
 
