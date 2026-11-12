@@ -8,5 +8,21 @@
   "components/ui/tabs.tsx": "865d0194331b9b2be36723fa79d3575dc83078b4cb941cafee87cb72fc2cff46",
   "components/ui/sheet.tsx": "63863cf2df8f8973e52b3459ac9bdbf81be1262dbc70eb53d5271ffb03488e16",
   "components/ui/switch.tsx": "386d4d4deb39f34126f9700fe9bf5393d238485dd94018bba9d154dda84c62ae",
-  "components/ui/select.tsx": "0b796a108a4eb5ba52d9ad938b7aea36dc56ae66c703a6d0a23dbc24f96daff3"
+  "components/ui/select.tsx": "0b796a108a4eb5ba52d9ad938b7aea36dc56ae66c703a6d0a23dbc24f96daff3",
+  "app/customer.css": "3e75de3c5de6177d295808ac7321948d755c03b7133c6d465e286876f5edc52c",
+  "public/puna-official-logo.svg": "3434aaf3149fef6c7d1ce86392108c8a286e3dcd486d4069154bf3d16d8b6227",
+  "public/photos/hero.webp": "2c59bf570c6b7db15c15261d67966c7097b5f3131ea564c42df1cd4632018c15",
+  "public/photos/trailer-480.webp": "f738d88cce4d3fb0c641533019ee64a02998f72d945a66c050914dbd22e7d840",
+  "public/photos/baking-tray-960.webp": "d5716923afb61129353c010a6aa6d273db324f6f2462dadb990a6aadc723b55e",
+  "public/photos/baking-tray-480.webp": "ead3adaf93d538696d38c93ab3f8326a69ef6005c36494ff7d7c707a508bb39b",
+  "public/photos/trailer.webp": "97bbc0dee036f038ca1b7b2b119c2584bdd7b38b97d44e413a65d3fb0769e65d",
+  "public/photos/surf-brand.webp": "4501f7516d65aa6c153139f399385a87a514eaa6ad3b135bc5713dbb6cee691f",
+  "public/photos/story.webp": "a5d91db155385c2045b0bf2fa593f80f7428cc97fe3c9a1f38408095b4f0aade",
+  "public/photos/baking-tray.webp": "aad666e814ffcee00847e61bb1b387d87324da1658de8665b8b32ff187cdb1e8",
+  "public/photos/story-960.webp": "2edb69b18f6f37b50e33cfea1adc70e2f7ada4cb29e8c9801a330da937a8851d",
+  "public/photos/hero-960.webp": "e6b641af713f3840e8cf7c3ea0b07e8f9890ab50ccde36b7e018bdc543cda68d",
+  "public/photos/surf-brand-960.webp": "65d82899ff49cee6e9842ca09685c3c0322ef9874c1a4341d21cf3fdaa7c5667",
+  "public/photos/surf-brand-480.webp": "8dea295c41832d17b43a0f850e133b216269777089bfe43796e78631fff6e2cf",
+  "public/photos/hero-480.webp": "aeee480efc67f8a518d8fd2e7065f3211917c93e8f0e245677981d0d143aaa9c",
+  "public/photos/story-480.webp": "3baf256d5e23056a5e6f49345e971f716509beefc01e0fa3f1b06e2e6ecac171"
 }

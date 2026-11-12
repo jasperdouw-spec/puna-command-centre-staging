@@ -58,14 +58,14 @@ async function saveLine(c:PoolConnection,id:string,line:Allocation['lines'][numb
 async function reserve(c:PoolConnection,s:KitchenSnapshot,actor:{id:number|null},now:number,channel:Channel,items:{lotId:string;quantity:number}[],pickupAt:string,label:string){
  if(new Set(items.map(i=>i.lotId)).size!==items.length)fail('Duplicate batch in basket',400);
  if(channel==='truck'&&s.state.mode==='closed')fail('Kitchen is closed to new walk-in reservations.');
- if(channel==='online'&&effectiveStatus(s.state,now,s.lots,s.allocations).status!=='open')fail('Online reservations paused: truck must be open, fresh and reconciled.');
+ if(channel==='online'&&s.status!=='open')fail('Online reservations paused: truck must be open, fresh and reconciled.');
  if(Date.parse(pickupAt)<now||Date.parse(pickupAt)>now+24*3600000)fail('Pickup commitment must be within the next day.',400);
  const lines:Allocation['lines']=[];
  for(const item of items){
   const l=s.lots.find(l=>l.id===item.lotId);if(!l)fail('Batch unavailable');
   if(capacity(l,s.allocations).deficit)fail('Batch shortage needs review');
   const ready=Math.max(0,l[`${channel}_ready`]-reserved(l.id,channel,'ready',s.allocations));
-  const baking=channel==='online'?Math.max(0,l.online_baking-reserved(l.id,channel,'baking',s.allocations)):0;
+  const baking=0; // Oven capacity is informational until explicitly confirmed ready.
   if(item.quantity>ready+baking)fail('Not enough uncommitted stock in this allocation.');
   const readyUnits=Math.min(ready,item.quantity);
   if(readyUnits<item.quantity&&Date.parse(l.estimatedReadyAt)>Date.parse(pickupAt))fail('Batch estimate does not fit the pickup commitment.');

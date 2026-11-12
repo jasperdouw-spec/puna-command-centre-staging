@@ -1,3 +1,4 @@
+import {runPosChecks} from './kitchen-square-integration.mjs';
 import {runOrderingChecks} from './ordering-integration.mjs';
 import {runOrderingBrowser} from './ordering-browser.mjs';
 import {runKitchenChecks} from './kitchen-integration.mjs';
@@ -542,6 +543,10 @@ try{
  await context.close();
  if(process.env.PUNA_PHASE_C_TESTS==='true'){
   await check('feature-off kitchen requires no new schema and keeps public preview absent',async()=>{assert.equal((await request('/api/kitchen',{cookie})).status,404);assert.equal((await request('/api/kitchen/availability')).data.enabled,false);assert.equal((await request('/api/puna')).data.kitchenPreview,false);});
+  const baselineContext=await browser.newContext({ignoreHTTPSErrors:true,reducedMotion:'reduce'}),baselinePage=await baselineContext.newPage();
+  await baselineContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());
+  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await baselinePage.setViewportSize({width,height});await baselinePage.goto(origin+'/');await baselinePage.locator('.hero-visual img').evaluate(im=>im.decode());for(const [name,selector] of [['hero','.hero'],['story','.story-full']]){const section=baselinePage.locator(selector);await section.scrollIntoViewIfNeeded();for(const im of await section.locator('img').all())await im.evaluate(i=>i.decode());await section.screenshot({path:'test-artifacts/screenshots/inventory-baseline-'+device+'-'+name+'.png',animations:'disabled'});}}
+  await baselineContext.close();
   execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{stdio:'inherit'});
   const restart=async(enabled)=>{app.kill('SIGTERM');await new Promise(r=>app.once('exit',r));app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,PUNA_CHECKOUT_MODE:'disabled',PUNA_LIVE_KITCHEN_ENABLED:String(enabled),PUNA_KITCHEN_PUBLIC_PREVIEW:String(enabled),PUNA_KITCHEN_FIXTURES:String(enabled),BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production'},stdio:['ignore','pipe','pipe']});app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));let ready=false;for(let n=0;n<60;n++){try{if((await request('/api/kitchen/availability')).data.enabled===enabled){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}assert.ok(ready);};
   await restart(true);
@@ -559,6 +564,10 @@ try{
   await runOrderingBrowser({browser,origin,db,check,password,helpers});
   await restart(false,false);
   await check('D1 feature-off retains schema and original checkout while local fixtures refuse all actions',async()=>{assert.equal((await request('/api/checkout')).data.mode,'disabled');assert.equal((await request('/api/pickup',{cookie:staffCookie})).status,404);assert.equal((await request('/api/local-fixtures',{method:'POST',body:{action:'run-jobs'},extraHeaders:{'x-local-fixture-key':process.env.PUNA_D1_FIXTURE_SECRET}})).status,404);assert.equal((await request('/api/operations',{cookie:staffCookie})).status,200);});
+ }
+ if(process.env.PUNA_PHASE_C_TESTS==='true'){
+  const restart=async(enabled)=>{app.kill('SIGTERM');await new Promise(r=>app.once('exit',r));app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,PUNA_CHECKOUT_MODE:'disabled',PUNA_LIVE_KITCHEN_ENABLED:'true',PUNA_SQUARE_POS_ENABLED:String(enabled),PUNA_SQUARE_POS_WEBHOOK_URL:origin+'/api/square/pos-webhook',PUNA_SQUARE_POS_WEBHOOK_KEY:'synthetic-pos-key',PUNA_SQUARE_POS_LOCATION_ID:'synthetic-location',PUNA_SQUARE_POS_CUTOVER_AT:'2026-11-01T00:00:00Z',BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production'},stdio:['ignore','pipe','pipe']});app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));let ready=false;for(let n=0;n<60;n++){try{if((await request('/api/auth')).status===200){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}assert.ok(ready);};
+  await runPosChecks({db,request,check,cookie,restart});
  }
  await check('isolated synthetic restore preserves counts, definitions, indexes and foreign keys',async()=>{console.log('Synthetic recovery evidence '+JSON.stringify(await verifySyntheticRecovery()))});
  console.log('RESULT '+passed+' integration checks passed; synthetic data only; no deployment; private magenta restore remains blocked.');
