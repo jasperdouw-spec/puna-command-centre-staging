@@ -102,7 +102,7 @@ jobs:
         run: |
           python3 - <<'PYIMAGE'
           import pathlib, base64
-          names=['inventory-kitchen-overview.png','inventory-display-panel-desktop.png','inventory-display-panel-mobile.png','inventory-baseline-desktop-story.png','inventory-preserved-desktop-story.png','inventory-baseline-desktop-hero.png','inventory-preserved-desktop-hero.png','inventory-baseline-mobile-story.png','inventory-preserved-mobile-story.png']
+          names=['inventory-kitchen-overview.png','inventory-display-panel-desktop.png','inventory-display-panel-mobile.png','inventory-baseline-mobile-hero.png','inventory-preserved-mobile-hero.png','inventory-baseline-desktop-story.png','inventory-preserved-desktop-story.png','inventory-baseline-desktop-hero.png','inventory-preserved-desktop-hero.png','inventory-baseline-mobile-story.png','inventory-preserved-mobile-story.png']
           for name in names:
               path=pathlib.Path('test-artifacts/screenshots')/name
               if not path.exists(): continue
