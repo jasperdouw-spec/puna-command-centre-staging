@@ -2,7 +2,7 @@ import {runPosChecks} from './kitchen-square-integration.mjs';
 import {runOrderingChecks} from './ordering-integration.mjs';
 import {runOrderingBrowser} from './ordering-browser.mjs';
 import {runKitchenChecks} from './kitchen-integration.mjs';
-import {runKitchenBrowser} from './kitchen-browser.mjs';
+import {runKitchenBrowser,visualMismatches} from './kitchen-browser.mjs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {assertSyntheticContext} from './disposable-context.mjs';
@@ -548,6 +548,7 @@ try{
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await baselinePage.setViewportSize({width,height});await baselinePage.goto(origin+'/');await baselinePage.getByText('Synthetic test hours only',{exact:true}).waitFor();await baselinePage.locator('.hero-visual img').evaluate(im=>im.decode());for(const [name,selector] of [['hero','.hero'],['story','.story-full']]){const section=baselinePage.locator(selector);await section.scrollIntoViewIfNeeded();for(const im of await section.locator('img').all())await im.evaluate(i=>i.decode());await section.screenshot({path:'test-artifacts/screenshots/inventory-baseline-'+device+'-'+name+'.png',animations:'disabled'});}}
   await baselineContext.close();
   execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{stdio:'inherit'});
+  await check('numbered kitchen migration rerun preserves the initial state',async()=>{const before=(await db.query('SELECT * FROM kitchen_state'))[0];execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{stdio:'inherit'});assert.deepEqual((await db.query('SELECT * FROM kitchen_state'))[0],before);});
   const restart=async(enabled)=>{app.kill('SIGTERM');await new Promise(r=>app.once('exit',r));app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,PUNA_CHECKOUT_MODE:'disabled',PUNA_LIVE_KITCHEN_ENABLED:String(enabled),PUNA_KITCHEN_PUBLIC_PREVIEW:String(enabled),PUNA_KITCHEN_FIXTURES:String(enabled),BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production'},stdio:['ignore','pipe','pipe']});app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));let ready=false;for(let n=0;n<60;n++){try{if((await request('/api/kitchen/availability')).data.enabled===enabled){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}assert.ok(ready);};
   await restart(true);
   await runKitchenChecks({db,request,check,cookie,staffCookie});
@@ -570,6 +571,7 @@ try{
   await runPosChecks({db,request,check,cookie,restart});
  }
  await check('isolated synthetic restore preserves counts, definitions, indexes and foreign keys',async()=>{console.log('Synthetic recovery evidence '+JSON.stringify(await verifySyntheticRecovery()))});
+ await check('approved hero and Story screenshots remain unchanged',async()=>assert.deepEqual(visualMismatches,[]));
  console.log('RESULT '+passed+' integration checks passed; synthetic data only; no deployment; private magenta restore remains blocked.');
 }finally{
  if(browser)await browser.close();

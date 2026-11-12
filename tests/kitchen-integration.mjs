@@ -15,7 +15,7 @@ export async function runKitchenChecks({db,request,check,cookie,staffCookie}){
  await db.execute("INSERT INTO products(id,name,description,price_cents,kind,available) VALUES('kitchen-corn','Golden corn · synthetic','Disposable kitchen demonstration',800,'fresh',1),('kitchen-spinach','Spinach & cheese · synthetic','Disposable kitchen demonstration',800,'fresh',1)");
  for(const id of ['kitchen-corn','kitchen-spinach'])await db.execute("INSERT INTO commerce_products(product_id,canonical_id,category,publication) VALUES(?,?,'empanada','staging')",[id,id]);
  await check('kitchen candidate reruns safely and refuses a missing table behind its ledger',async()=>{
-  assert.match(execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{encoding:'utf8'}),/already applied/);
+  assert.match(execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{encoding:'utf8'}),/already_applied/);
   await db.query('RENAME TABLE kitchen_observations TO synthetic_kitchen_observations');try{assert.throws(()=>execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{stdio:'pipe'}),/Command failed/);}finally{await db.query('RENAME TABLE synthetic_kitchen_observations TO kitchen_observations');}
   assert.equal((await inspect()).lots.length,0);assert.equal((await inspect()).state.holdSeconds,300);
  });
