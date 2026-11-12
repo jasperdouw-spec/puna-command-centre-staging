@@ -1,0 +1,27 @@
+PUNA LIVE INVENTORY AND PICKUP — STAGING RELEASE, NOVEMBER 12, 2026
+
+Status: Built and deployed to https://staging.punaempanadas.ca. Hostinger shows puna-inventory-20cc815-20261112.zip Completed / Current (09:17:47 Pacific). Additive migration 009 is installed and verified. The kitchen starts closed with no stock entered. Checkout, live payments, local fixtures and automatic Square POS remain disabled. The official site and DNS were not changed.
+
+Delivered: Ready in Display touch controls; interactive multiple oven batches with quantity/ETA adjustments, staff-confirmed partial transfers and cancellations; audit history, existing roles and protected allocations; a PUNA-branded glass cabinet using the approved typography, palette and photography; shared transactional inventory, version conflicts, idempotency, expiring ready-only holds and safe offline/reconnect behavior. Timers never make food sellable and carts do not reserve stock.
+
+Validation: 181 integration checks against the standalone production build, 55 domain checks in CI plus 8 local boundary checks, type checking and production build passed. Native synthetic restore verified 63 tables, 192 indexes and 71 foreign keys. Desktop/mobile design preservation checks passed. Hosted public inspection confirmed five existing catalog products, closed availability, disabled checkout and staff sign-in protection. Actual hosted mobile width 390 px had no horizontal overflow. Provider/payment tests were synthetic, not Square Sandbox or live acceptance.
+
+CI: https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/43256538548
+Feature branch: codex/live-inventory-20261111. Tested/deployed local source 20cc815770a15e45a4be8f8acf2ee5304af86e7e matches GitHub b4455e064f00cae997ad3ea755a1b952aa3f99e4, complete source tree 00a2d937ea4cc669575fa13c5e814613990dea78. Later documentation-only commits do not change the tested application.
+
+Remaining release gates: authenticated hosted staff acceptance (no active staff session was available), physically counted stock and Lenovo acceptance; real Square Catalog ITEMS_READ access and verified variation/location mappings; Square Sandbox transactional acceptance, missed-event reconciliation and operator exception handling; a fresh restore of the current private-data backup. Automatic POS and customer checkout must remain off until these gates pass. Production launch remains a separate decision.
+
+Evidence and detailed architecture, API, security, deployment/rollback, limitations and tests:
+Report: https://drive.google.com/file/d/1LQZCCy0I7hmo7XwEMKhLgz5z20VmEJZt/view?usp=drivesdk
+Source/documentation/screenshots backup: https://drive.google.com/file/d/1vq7iv7qRKVeQK3oQYqb2lyzylH8jZJUO/view?usp=drivesdk
+File hash manifest: https://drive.google.com/file/d/1JLKWLF_tsTVv5CFYRFOwk4RMMm_V8JCQ/view?usp=drivesdk
+Tablet handoff (existing PUNA tablet folder): https://drive.google.com/file/d/1mlBojnWiO5qpcGyhZbAXSdyPHdPRmLY2/view?usp=drivesdk
+
+Pacific Core source and matching documentation: /Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/docs/live-inventory
+Local evidence: /Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/test-artifacts/backups/puna-live-inventory-20261112/PUNA_Live_Inventory_Evidence_2026-11-12.zip
+Evidence SHA-256: 773deddd42578d55c9a16a6312996ed73ac4be8fcae05f7ab5345e9c65ca6178 (9,032,476 bytes). Local extract/readback matched all 23 file hashes and the 244-file nested source archive. Remote Drive report and manifest text matched exactly; archive folder and byte length matched. The remote ZIP was not independently downloaded for byte-hash verification. No private database or credentials are included.
+
+Native Hostinger files/database backup completed November 11, 2026 23:37 Pacific. Creation is verified; fresh private-data restore is not claimed. PUNA Control Agent and Android administration remain separate; no device settings were changed.
+
+END PUNA LIVE INVENTORY STAGING RELEASE — NOVEMBER 12, 2026
+
