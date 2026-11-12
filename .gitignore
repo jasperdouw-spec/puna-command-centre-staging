@@ -16,3 +16,6 @@ test-artifacts/
 !.env.example
 
 .domain-tests/
+*.tsbuildinfo
+
+/node_modules

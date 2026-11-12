@@ -1,6 +1,8 @@
 # Unified Puna staging application
 
-The unified application is deployed at https://staging.punaempanadas.ca. The current reporting release is `d1ba527640fe4edccc293e439255a3d6027df23b`, deployed on 4 November 2026 UTC, Hostinger build `01a1a5df-b752-723f-92df-d1b0c939f330`. Approved migration, private read-only Square authorization, source imports and authenticated readback are complete. The five-minute Hostinger refresh has completed an automatic execution. Node 22, Next.js, manual ZIP deployment and the existing isolated database are retained. Git auto-deployment is unset; review-branch updates do not deploy, and main is not the deployment source.
+The unified application is deployed at https://staging.punaempanadas.ca from exact commit `85bed7c71c6e5157abb9ba278ac5acc135c7a12d`, Hostinger build `01a1bf32-8255-71fc-bc48-c41726b5bf48`, completed 9 November 2026 at 07:27:09 UTC. The native MariaDB backup and isolated restore passed, including preservation and enforcement of all nine CHECK constraints. This was an application-only staging release: the 45-table schema and ledger 006 + 008 remain unchanged, while Kitchen, ordering, payments, email and fixtures remain off. Node 22, Next 16.4.1, manual ZIP deployment, private environment values and the existing reporting cron are preserved. Git auto-deployment is unset and linked repositories are empty. See the [verified staging release record](docs/STAGING_RELEASE_2026-11-09.md) for recovery, acceptance, reporting limits and rollback identity.
+
+The historical release and local-phase checkpoints below remain as dated evidence. Their earlier open recovery/deployment gates are superseded only by the 9 November staging release record. The exact candidate branch/archive was not changed; this documentation lives on a separate child branch.
 
 The public website and owner/worker workspaces share one authentication system and the isolated staging database. Public design assets and the approved trailer photograph are preserved.
 
@@ -57,3 +59,36 @@ The November 3 Hostinger build reported four npm vulnerabilities (three high, on
 Synthetic provider and recovery checks do not prove real Square/Google access, hosted worker fulfilment, actual payment capture or recovery of the preserved private website backups. Magenta's private restore rehearsal remains blocked. No hosted worker accounts, orders, stock movements or payment transactions were created in catalogue acceptance. Stock counts, ingredients/allergens, operational capacity, schedules, tax/deposit/portion rules, payment-provider setup and hosted end-to-end order testing need separate verification and approval. Public tax wording is not evidence that tax rules have been verified.
 
 Keep private backups, production credentials, customer records and session tokens out of this public repository and its Actions artifacts. No production launch, migration, cleanup, provider activation or hosted release is authorized merely by a documentation or review-branch update. See `INTEGRATION.md` for the original integration boundary; use this README's deployed-release statement for current release status.
+
+
+## Local Phase B checkpoint — 8 November 2026
+
+Public footer/metadata/404 refinements and the owner Day/Week/Month sales dashboard are preserved at `09db737324ae35d64ffe8857c607aef955e0e6aa` on `codex/puna-phase-b-20261108`. They are not deployed or merged. See [the implementation checkpoint](docs/PHASE_B_CHECKPOINT_2026-11-08.md), [Google Workspace preparation](docs/GOOGLE_WORKSPACE_PREPARATION_2026-11-08.md), [unpublished privacy/analytics draft](docs/PRIVACY_ANALYTICS_DRAFT_2026-11-08.md) and [separate dependency proposal](docs/DEPENDENCY_REMEDIATION_PROPOSAL_2026-11-08.md). Current hosting access/freshness cannot be inferred from earlier release evidence above.
+
+## Local Phase C checkpoint — 8 November 2026
+
+The owner approved local Live Kitchen implementation on the child branch `codex/puna-phase-c-20261108`. The worker screen, physical ready/baking ledger, protected online/truck allocations, explicit counter workflow and read-only public availability are disabled by default. Online reservations/payment transitions are guarded synthetic fixtures; the existing checkout and legacy fulfilment path remain unchanged. See [the Phase C checkpoint](docs/PHASE_C_CHECKPOINT_2026-11-08.md), [approved operating design](docs/LIVE_KITCHEN_APPROVED_PHASE_C_2026-11-08.md), [synthetic demonstration](docs/PHASE_C_DEMONSTRATION_2026-11-08.md) and [provisional schema/rollback](docs/PHASE_C_SCHEMA_AND_ROLLBACK_2026-11-08.md).
+
+No push, merge, deployment or existing-database migration occurred. Phase D, hosted acceptance and activation need separate approval. At that Phase C checkpoint, these items awaited Hostinger reauthentication. The Phase D1 read-only inspection below supersedes that access limitation; security remediation remains separate and open.
+
+## Local Phase D1 checkpoint — 8 November 2026
+
+Local customer ordering extends Phase C on `codex/puna-phase-d-20261108`, parent `8bd5f2b54ef7797be52e9c3dccfbe971f38dfb34`. Ready/started-baking baskets use atomic five-minute holds, durable fake payment reconciliation, private status/QR, staff set-aside/packing, explicit scan/handover and a local email outbox. All new routes require disposable-local gates; defaults remain off. No real payment or email, hosted migration, push, merge or deployment occurred.
+
+Hostinger MCP now authenticates. The current build remains the November 4 manual archive; site Git auto-deploy is null and linked repositories are empty. Reporting output is visible but lacks a completed watermark/time; schema/ledger/current backup and hosted browser acceptance remain unverified. See [read-only findings](docs/PHASE_D1_HOSTINGER_READONLY_2026-11-08.md).
+
+See [D1 checkpoint](docs/PHASE_D1_CHECKPOINT_2026-11-08.md), [architecture](docs/PHASE_D1_IMPLEMENTATION_DESIGN_2026-11-08.md), [demonstrations](docs/PHASE_D1_DEMONSTRATION_2026-11-08.md), [schema/containment](docs/PHASE_D1_SCHEMA_AND_CONTAINMENT_2026-11-08.md) and [D2 approval package](docs/PHASE_D2_APPROVAL_PACKAGE_2026-11-08.md). Containment stops intake while preserving existing obligations. D2 providers/devices, operational validation and dependency remediation are separate approvals.
+
+## Phase D2 backend preparation — 8 November 2026
+
+The owner deferred device and email acceptance until staging is complete and asked to use the private backend for now. Local preparation continues on `codex/puna-phase-d2-20261108`, from exact D1 `113ac14e642ee0f2714844c6ab622c8648a6c510`. Hosted configuration is unchanged. The production reporting connection cannot supply Sandbox payments. No external payment, refund, callback, email or physical-device test has run.
+
+Added tested Sandbox identity/payment/recipient guards and a default-off, standalone callback-only relay candidate. These helpers are not connected to the D1 application adapter. All 171 inherited integration checks, 41 domain checks and 17 new boundary checks pass, with no QR screenshots saved in D2. Build/typecheck pass. No public tunnel, push, merge or deployment occurred; dependencies and unnumbered schema proposals remain unchanged.
+
+Read-only hosting inspection now shows a completed cron output, but no execution timestamp or watermark; current reporting freshness/completeness remains unverified. See [D2 checkpoint and release gates](docs/PHASE_D2_BACKEND_CHECKPOINT_2026-11-08.md), [security/provider prerequisites](docs/PHASE_D2_EXPOSURE_AND_PROVIDER_GATES_2026-11-08.md) and the [12-minute José/worker walkthrough](docs/PUNA_TRUCK_ACCEPTANCE_CHECKLIST.md). This checkpoint completes local preparation, not external D2 acceptance or staging readiness.
+
+## Pre-staging hardening — 8 November 2026
+
+Local child branch `codex/puna-prestaging-20261108` preserves exact D2 and patches Next 16.3.4 → 16.4.1, sharp 0.35.4 → 0.35.5 and source-map-js 1.2.1 → 1.2.2. React stays 19.2.6 and Zod stays 3.25.76. All 17 application collection schemas now reject excessive arrays before element validation and enforce a nested-input budget; the Zod package advisory remains reported. Build generation is bounded to one worker. See [security decisions](docs/PRESTAGING_SECURITY_2026-11-08.md).
+
+The exact proposed archive, final commit, checksums and actual validation results are in the external pre-staging release manifest/receipt. This candidate contains B/C/D1/D2 but keeps Kitchen, ordering, payment/email adapters and fixtures off. Hosted schema/ledger, current private backup/restore, hosted acceptance and explicit deployment approval remain gates. **No deployment is authorized or performed.** Use the [complete release/acceptance/rollback plan](docs/PRESTAGING_RELEASE_PLAN_2026-11-08.md) and [private database procedure](docs/PRESTAGING_DATABASE_AND_RESTORE_2026-11-08.md). Source/evidence backups are not database backups.

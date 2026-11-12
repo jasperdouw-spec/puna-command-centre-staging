@@ -1,0 +1,2 @@
+import {boundedText,localRequest} from '@/lib/ordering-gates';import {localProviderWebhook} from '@/lib/ordering-payments';import {json,failure} from '@/lib/http';import {CommerceError} from '@/lib/commerce-model';
+export const runtime='nodejs';export async function POST(req:Request){if(!localRequest(req))return json({error:'Not found'},404);try{const raw=await boundedText(req,4000);return json(await localProviderWebhook(raw,req.headers.get('x-local-provider-signature')));}catch(e){return e instanceof CommerceError?json({error:e.code},e.status):failure(e);}}

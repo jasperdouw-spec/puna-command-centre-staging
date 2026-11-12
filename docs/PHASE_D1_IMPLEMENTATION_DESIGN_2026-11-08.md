@@ -1,0 +1,19 @@
+# Phase D1 local implementation design
+
+Authorized base: Phase C `8bd5f2b54ef7797be52e9c3dccfbe971f38dfb34`. Local fake payment/email only. No hosted changes, provider activation, push or merge.
+
+Extend the existing `pickup_orders` and `pickup_order_lines`, checkout endpoint, transaction/audit/rate-limit helpers and authoritative price/tax calculation. A nullable legacy service-batch link distinguishes actual-kitchen orders from existing scheduled/frozen orders. A one-to-one order extension links each new order to exactly one Phase C allocation. Existing orders retain their original fulfilment path. New orders never touch legacy stock balances or capacity commitments.
+
+The pickup order owns payment and fulfilment state. Its linked kitchen allocation owns physical commitment. One transaction changes both whenever payment, release or collection changes commitment. Phase C fixture payment/collection and ordinary expiry must refuse or skip linked customer orders; only verified payment orchestration can change those orders. Legacy release/collection/payment helpers must refuse kitchen orders.
+
+Customers select server-issued opaque offers for actual ready/baking lots. Authenticated encryption prevents client changes to lot, stage or catalogue version. Quote/reserve revalidate every offer, price/tax input, stage and quantity; a basket never silently selects another batch. Customer status and pickup credentials are separate high-entropy tokens. Status links use URL fragments, API credentials use request bodies, and sensitive routes have no-referrer/no-store headers and no third-party network permissions.
+
+Checkout uses stable customer-generated retry identity/access secret, a server-issued HttpOnly session, per-session/email/global limits and one active unpaid/uncertain order per session. Basket limits are 12 units / 6 offer lines; five-minute default server hold is inherited from the kitchen. No hold renewal endpoint exists. Replays return the original order without extending expiry; changed payloads conflict.
+
+Durable payment attempts record an idempotent provider request and reconciliation lease. Provider I/O occurs outside the stock transaction. The local fake adapter persists its own state, never calls Square and can only be configured by a separate guarded fixture capability. Payment events require a signature and identity/amount/currency verification; duplicate/out-of-order events cannot downgrade a capture. A late capture attempts the exact original basket only under the original pickup commitment, or creates an owner-visible exception without taking another order's stock.
+
+Packing requires all actual allocated items ready, physically set aside and free of shortages/delay exceptions. Payment alone is not Ready. Scan only inspects. Explicit handover rechecks paid/packed/fresh physical state and atomically consumes stock and commitment once. A fresh reviewed truck may pack/collect while Paused/Closed; stale physical handover requires review/reconnect. Payment reconciliation never requires Open/fresh truck state.
+
+Durable notification jobs have stable identities, attempts, leases, retry times and state checks. Local capture uses an idempotent fake provider. Ready jobs are suppressed after relevant order changes; failures never undo payment or release food. Only intake is disabled during containment; reconciliation, status, protected queue, packing and safe collection remain available in the local service.
+
+All new functionality requires explicit disposable-local gates, loopback requests/database and a synthetic database identity. Default flags are off. Candidate migrations remain unnumbered because authenticated Hostinger API access still does not expose the installed SQL migration ledger. Only the guarded disposable runner may apply them. Hosted compatibility, real tablet workflow and Phase D2 providers remain separate approvals.

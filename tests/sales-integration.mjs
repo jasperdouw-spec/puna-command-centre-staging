@@ -91,4 +91,23 @@ export async function runSalesChecks({db,request,check,cookie,staffCookie}){
   assert.equal((await db.query('SELECT watermark FROM sales_connection'))[0][0].watermark,run[0].end_at);
  });
 
+ await check('dashboard reads the same included ledger without changing records or audit',async()=>{
+  const before=(await db.query('SELECT COUNT(*) n FROM audit_log'))[0][0].n;
+  const dash=await request('/api/sales?view=dashboard&period=month&date=2025-06-15',{cookie});assert.equal(dash.status,200);
+  const legacy=await request('/api/sales?from=2025-06-01&to=2025-06-30&group=product',{cookie});
+  assert.equal(dash.data.current.totals.net,Number(legacy.data.totals.net_cents));assert.equal(dash.data.current.totals.transactions,Number(legacy.data.totals.transactions));
+  assert.equal(dash.data.current.totals.aov,Number(legacy.data.totals.net_cents)/Number(legacy.data.totals.transactions));assert.equal(dash.data.current.totals.quantity,Number(legacy.data.totals.quantity));
+  assert.equal(dash.data.current.products.reduce((n,p)=>n+p.metrics.net,0),dash.data.current.totals.net);assert.equal(dash.data.current.totals.tips,null);assert.equal(dash.data.coverage.complete,false);
+  assert.equal((await db.query('SELECT COUNT(*) n FROM audit_log'))[0][0].n,before);
+ });
+ await check('dashboard denies staff, validates filters, and never calls empty periods zero',async()=>{
+  assert.equal((await request('/api/sales?view=dashboard',{cookie:staffCookie})).status,403);assert.equal((await request('/api/sales?view=dashboard')).status,401);
+  assert.equal((await request('/api/sales?view=dashboard&period=year',{cookie})).status,400);assert.equal((await request('/api/sales?view=dashboard&date=2999-01-01',{cookie})).status,400);
+  const empty=await request('/api/sales?view=dashboard&period=day&date=2001-01-01',{cookie});assert.equal(empty.data.current.totals.net,null);assert.equal(empty.data.current.totals.aov,null);assert.ok(empty.data.current.points.every(p=>p.metrics.net===null));
+ });
+ await check('product drill-down filters the reconciled ledger without reallocating refunds or tips',async()=>{
+  const all=await request('/api/sales?view=dashboard&period=month&date=2025-06-15',{cookie});const p=all.data.current.products[0];
+  const detail=await request('/api/sales?view=dashboard&period=month&date=2025-06-15&product='+p.key,{cookie});assert.equal(detail.status,200);assert.equal(detail.data.current.totals.net,p.metrics.net);assert.equal(detail.data.current.totals.refunds,p.metrics.refunds);assert.equal(detail.data.current.totals.tips,null);assert.equal(detail.data.current.products.length,1);
+ });
+
 }

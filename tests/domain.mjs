@@ -1,10 +1,11 @@
+import {assertSyntheticContext} from './disposable-context.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import ts from 'typescript';
-assert.equal(process.env.GITHUB_ACTIONS,'true');assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
+assertSyntheticContext({database:false});
 mkdirSync('.domain-tests',{recursive:true});
-for(const name of ['commerce-model','costing']){
- const source=readFileSync('lib/'+name+'.ts','utf8').replaceAll("'./commerce-model'","'./commerce-model.mjs'");
+for(const name of ['bounded-array','commerce-model','costing']){
+ const source=readFileSync('lib/'+name+'.ts','utf8').replaceAll("'./commerce-model'","'./commerce-model.mjs'").replaceAll("'./bounded-array'","'./bounded-array.mjs'");
  writeFileSync('.domain-tests/'+name+'.mjs',ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
 }
 const {quoteCart,localInstant,planBatches,batchFits,capacityConfig}=await import('../.domain-tests/commerce-model.mjs');

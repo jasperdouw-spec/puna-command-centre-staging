@@ -1,14 +1,17 @@
+import {boundedArray} from '@/lib/bounded-array';
+import {orderingLocal} from '@/lib/ordering-gates';
 import {catalogue} from '@/lib/catalogue';
 import {currentUser,checkOrigin,requireRole} from '@/lib/auth';
 import {database} from '@/lib/db';
 import {json,failure} from '@/lib/http';
 import {slots} from '@/lib/puna';
 import {z} from 'zod';
+import {publicKitchenEnabled} from '@/lib/kitchen';
 import type {RowDataPacket} from 'mysql2';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
-const order=z.object({action:z.literal('order'),id:z.string().uuid(),customer:z.string().trim().min(1).max(80),slot:z.enum(slots as [string,...string[]]),items:z.array(z.object({id:z.string().max(64),quantity:z.number().int().min(1).max(20)}).strict()).min(1).max(5)}).strict();
-export async function GET(){try{const u=await currentUser();const c=await catalogue();return json({products:c.products,settings:c.settings,canManage:!!u,workspaceHref:u?'/workspace':'/sign-in',testOrdersEnabled:process.env.STAGING_TEST_ORDERS_ENABLED==='true'});}catch(e){return failure(e)}}
+const order=z.object({action:z.literal('order'),id:z.string().uuid(),customer:z.string().trim().min(1).max(80),slot:z.enum(slots as [string,...string[]]),items:boundedArray(z.object({id:z.string().max(64),quantity:z.number().int().min(1).max(20)}).strict(),5,1)}).strict();
+export async function GET(){try{const u=await currentUser();const c=await catalogue();return json({products:c.products,settings:c.settings,canManage:!!u,workspaceHref:u?'/workspace':'/sign-in',testOrdersEnabled:process.env.STAGING_TEST_ORDERS_ENABLED==='true',kitchenPreview:publicKitchenEnabled(),orderingLocal:orderingLocal()});}catch(e){return failure(e)}}
 export async function POST(req:Request){
  if(!checkOrigin(req))return json({error:'Invalid origin'},403);
  try{

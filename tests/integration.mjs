@@ -1,5 +1,12 @@
+import {runOrderingChecks} from './ordering-integration.mjs';
+import {runOrderingBrowser} from './ordering-browser.mjs';
+import {runKitchenChecks} from './kitchen-integration.mjs';
+import {runKitchenBrowser} from './kitchen-browser.mjs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {assertSyntheticContext} from './disposable-context.mjs';
 import assert from 'node:assert/strict';
-import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
+import {readFileSync,mkdirSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';
 import {spawn,execFileSync} from 'node:child_process';
 import {randomBytes,randomUUID,scryptSync,createHash} from 'node:crypto';
 import https from 'node:https';
@@ -12,10 +19,7 @@ import {runCustomerChecks} from './customers-integration.mjs';
 import {runSalesChecks} from './sales-integration.mjs';
 import {verifySyntheticRecovery} from './recovery.mjs';
 
-assert.equal(process.env.GITHUB_ACTIONS,'true','Synthetic integration suite is CI-only');
-assert.equal(process.env.DB_HOST,'127.0.0.1');
-assert.equal(process.env.DB_NAME,'puna_ci_synthetic');
-assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
+assertSyntheticContext();
 const db=await mysql.createConnection({host:'127.0.0.1',port:Number(process.env.DB_PORT),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME,multipleStatements:true});
 // Match the established hosted database, including its inherited table collation.
 await db.query('ALTER DATABASE puna_ci_synthetic CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
@@ -23,9 +27,10 @@ for(const [file,expected] of Object.entries(JSON.parse(readFileSync('tests/prese
 const origin='https://localhost:3443';
 const appArgs=['--import', './tests/provider-fixture.mjs',...(process.env.PUNA_TEST_STANDALONE==='true'?['.next/standalone/server.js']:['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3100'])];
 const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100',PUNA_CHECKOUT_MODE:'square-sandbox',SQUARE_SANDBOX_ACCESS_TOKEN:'synthetic-not-a-provider-secret',SQUARE_SANDBOX_LOCATION_ID:'synthetic-location',SQUARE_SANDBOX_APPLICATION_ID:'synthetic-application',SQUARE_WEBHOOK_SIGNATURE_KEY:'synthetic-webhook-only',SQUARE_WEBHOOK_URL:'https://127.0.0.1:3443/api/square/webhook',PUNA_JOB_TOKEN:'synthetic-ci-job-token-never-use-on-hosting'};
+const certDirectory=mkdtempSync(join(tmpdir(),'puna-phase-b-synthetic-'));
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
- console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
+ console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),overflow:await p.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.right>innerWidth+1&&r.width>0}).slice(0,12).map(e=>({tag:e.tagName,cls:e.className,right:e.getBoundingClientRect().right}))),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
 function request(path,{method='GET',body,rawBody,cookie,originHeader=origin,extraHeaders={}}={}){
  return new Promise((resolve,reject)=>{
   const headers={...extraHeaders};if(cookie)headers.cookie=cookie;if(originHeader!==null)headers.origin=originHeader;
@@ -61,12 +66,12 @@ try{
   }finally{await db.query('RENAME TABLE synthetic_migration_customer_notes TO customer_notes')}
  });
  await db.execute("INSERT INTO products(id,name,description,price_cents,kind) VALUES(?,?,?,?,?)",['synthetic-product','Synthetic product','Disposable integration fixture',1234,'fresh']);
- execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout','/tmp/puna-ci-key.pem','-out','/tmp/puna-ci-cert.pem','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost'],{stdio:'ignore'});
+ execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(certDirectory,'key.pem'),'-out',join(certDirectory,'cert.pem'),'-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost'],{stdio:'ignore'});
  app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,BOOTSTRAP_TOKEN:token,STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production',NEXT_TELEMETRY_DISABLED:'1'},stdio:['ignore','pipe','pipe']});
  // Only application diagnostics, never request bodies, session tokens or database rows.
  app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));
- proxy=https.createServer({key:readFileSync('/tmp/puna-ci-key.pem'),cert:readFileSync('/tmp/puna-ci-cert.pem')},(req,res)=>{
-  const upstream=http.request({host:'127.0.0.1',port:3100,path:req.url,method:req.method,headers:{...req.headers,host:'localhost:3443','x-forwarded-proto':'https'}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res)});
+ proxy=https.createServer({key:readFileSync(join(certDirectory,'key.pem')),cert:readFileSync(join(certDirectory,'cert.pem'))},(req,res)=>{
+  const upstream=http.request({host:'127.0.0.1',port:3100,path:req.url,method:req.method,headers:{...req.headers,host:req.headers.host||'localhost:3443','x-forwarded-proto':'https'}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res)});
   upstream.on('error',()=>{res.writeHead(503);res.end()});req.pipe(upstream);
  });
  await new Promise(resolve=>proxy.listen(3443,'127.0.0.1',resolve));
@@ -255,9 +260,14 @@ try{
  assert.equal((await request('/api/team',{method:'POST',cookie,body:{action:'revoke',userId:r[0].id}})).status,200);assert.equal((await request('/api/operations',{cookie:session})).status,401);
  });
 
- browser=await chromium.launch();
+ browser=await chromium.launch(process.env.PUNA_DISPOSABLE_LOCAL_TESTS==='true'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu']}:{});
+ // D2 evidence must not retain QR/status credentials, including rendered QR images.
+ if(process.env.PUNA_CAPTURE_SYNTHETIC_SCREENSHOTS==='false'){
+  const newContext=browser.newContext.bind(browser);
+  browser.newContext=async(...args)=>{const c=await newContext(...args);c.on('page',p=>{p.screenshot=async()=>Buffer.alloc(0);Object.getPrototypeOf(p.locator('body')).screenshot=async()=>Buffer.alloc(0);});return c;};
+ }
  mkdirSync('test-artifacts/screenshots',{recursive:true});
- const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
+ const context=await browser.newContext({ignoreHTTPSErrors:true,reducedMotion:'reduce',viewport:{width:1440,height:1000}});
  await context.route('**/*',route=>{const url=new URL(route.request().url());return url.hostname==='localhost'?route.continue():route.abort()});
  const page=await context.newPage();page.on('pageerror',e=>console.log('Browser error: '+e.message));
  const navigateWorkspace=async(target,name)=>{
@@ -295,12 +305,28 @@ try{
   assert.ok(await page.getByRole('button',{name:'Edit Synthetic browser edit',exact:true}).evaluate(e=>e===document.activeElement));
  });
  await check('sales and source recipe views show synthetic evidence on desktop and mobile',async()=>{
-  await page.setViewportSize({width:1440,height:1000});await navigateWorkspace(page,'Today');await page.getByRole('tab',{name:'Sales reports',exact:true}).click();await page.getByRole('heading',{name:'Historical Square files',exact:true}).waitFor();
+  await page.setViewportSize({width:1440,height:1000});await navigateWorkspace(page,'Today');await page.getByRole('tab',{name:'Sales reports',exact:true}).click();await page.getByText('Source review, mappings & reporting controls',{exact:true}).click();await page.getByRole('heading',{name:'Historical Square files',exact:true}).waitFor();
   await page.getByLabel('From',{exact:true}).fill('2025-01-01');await page.getByLabel('Through',{exact:true}).fill('2025-12-31');await page.getByLabel('Group by',{exact:true}).selectOption('product');
   await page.getByText('Synthetic source recipe · recipe · requires verification',{exact:true}).click();await page.locator('.source-references details[open] th').filter({hasText:'Source quantity'}).scrollIntoViewIfNeeded();
   for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]]){await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'test-artifacts/screenshots/'+device+'-sales.png',fullPage:true});}
   await navigateWorkspace(page,'Kitchen');await page.getByRole('tab',{name:'Recipes & production',exact:true}).click();await page.getByRole('heading',{name:'Source recipes',exact:true}).waitFor();
   await page.goto(origin+'/workspace');
+ });
+ await check('dashboard tabs, metric selection, sorting and product detail work responsively',async()=>{
+  await navigateWorkspace(page,'Today');await page.getByRole('tab',{name:'Sales reports',exact:true}).click();
+  await page.getByRole('tab',{name:'Month',exact:true}).click();await page.getByLabel('Reporting date',{exact:true}).fill('2025-06-15');
+  await page.locator('.sd-card').first().waitFor();await page.waitForFunction(()=>document.querySelector('.sd-product'));
+  await page.locator('.sd-product').first().click();await page.getByRole('region',{name:'Selected product detail'}).waitFor();await page.locator('.sd-product-detail .sd-chart').waitFor();
+  await page.getByRole('button',{name:'Close detail',exact:true}).click();await page.getByRole('button',{name:'Quantity',exact:true}).click();
+  await page.locator('.sd-card').filter({hasText:'Transactions'}).click();assert.equal(await page.locator('.sd-card').filter({hasText:'Transactions'}).getAttribute('aria-pressed'),'true');
+  await page.getByRole('columnheader',{name:/Product/}).getByRole('button').click();assert.equal(await page.getByRole('columnheader',{name:/Product/}).getAttribute('aria-sort'),'ascending');
+  await page.locator('.sd-card').filter({hasText:'Net sales'}).click();
+  await page.getByText('Refunds, discounts, taxes & tips',{exact:true}).click();await page.getByText('No reconciled item-level source',{exact:true}).waitFor();await page.getByText('Refunds, discounts, taxes & tips',{exact:true}).click();
+  for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844],['narrow',320,740]]){await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.waitForTimeout(150);await page.screenshot({path:'test-artifacts/screenshots/'+device+'-dashboard.png',fullPage:false,animations:'disabled'});
+   if(width<600){await page.locator('.sd-period-note').evaluate(e=>e.scrollIntoView({block:'start',behavior:'instant'}));await page.waitForTimeout(150);await page.screenshot({path:'test-artifacts/screenshots/'+device+'-dashboard-metrics.png',fullPage:false,animations:'disabled'});}
+   await page.getByRole('heading',{name:'What people came for',exact:true}).evaluate(e=>e.scrollIntoView({block:'start',behavior:'instant'}));await page.waitForTimeout(150);await page.screenshot({path:'test-artifacts/screenshots/'+device+'-dashboard-products.png',fullPage:false,animations:'disabled'});}
+  await page.getByRole('tab',{name:'Day',exact:true}).click();await page.getByRole('tab',{name:'Day',exact:true}).focus();await page.keyboard.press('ArrowRight');assert.equal(await page.getByRole('tab',{name:'Week',exact:true}).getAttribute('aria-selected'),'true');
+  await page.setViewportSize({width:1440,height:1000});await page.goto(origin+'/workspace');
  });
  await check('order workspace starts with real empty state and opens existing Sandbox order details',async()=>{
   await navigateWorkspace(page,'Today');await page.getByRole('heading',{name:'No active paid orders',exact:true}).waitFor();
@@ -397,12 +423,20 @@ try{
  await check('customer bag persists without placing unpaid orders',async()=>{const beforeOrders=await count('pickup_orders');
   const before=await count('test_orders');await page.goto(origin+'/');await page.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await page.goto(origin+'/cart');await page.getByRole('heading',{name:'Your bag',exact:true}).waitFor();await page.reload();await page.getByRole('heading',{name:'Synthetic browser edit',exact:true}).waitFor();assert.equal(await count('test_orders'),before);assert.equal(await count('pickup_orders'),beforeOrders);assert.equal(await page.getByRole('button',{name:'Place test order',exact:true}).count(),0);
  });
+ await check('staging metadata, genuine branded 404 and sitemap protect private routes',async()=>{
+  const missing=await request('/this-page-does-not-exist');assert.equal(missing.status,404);assert.match(missing.data,/back to PUNA/);assert.equal(missing.headers['x-robots-tag'],'noindex, nofollow');
+  const home=await request('/');assert.match(home.data,/og:image/);assert.match(home.data,/puna-social.jpg/);assert.match(home.data,/noindex, nofollow/);
+  const map=await request('/sitemap.xml');assert.equal(map.status,200);assert.doesNotMatch(map.data,/<loc>/);
+  const robots=await request('/robots.txt');assert.equal(robots.status,200);assert.match(robots.data,/Disallow: \/receipt/);assert.doesNotMatch(robots.data,/Sitemap:/);
+  assert.equal((await request('/privacy')).status,404);assert.equal((await request('/social/puna-social.jpg')).status,200);
+  assert.notEqual((await request('/cart')).data.match(/<title>(.*?)<\/title>/)?.[1],home.data.match(/<title>(.*?)<\/title>/)?.[1]);
+ });
  await check('public design, artwork and navigation render on desktop and mobile with synthetic catalogue',async()=>{
   // Synthetic records only; render five customer menu items and keep three frozen products internal.
   await db.execute("UPDATE products SET price_cents=800 WHERE id='synthetic-product'");
   for(let i=1;i<=7;i++)await db.execute('INSERT INTO products(id,name,description,price_cents,kind,available) VALUES(?,?,?,?,?,?)',['fixture-'+i,'Synthetic menu '+i,'Disposable test description. No customer data.',i<=4?800:2500,i<=4?'fresh':'frozen',i<=4?1:0]);
   const publicContext=await browser.newContext({ignoreHTTPSErrors:true});await publicContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const pp=await publicContext.newPage();
-  for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844]]){
+  for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844],['narrow',320,740]]){
    await pp.setViewportSize({width,height});await pp.goto(origin+'/');await pp.getByText('Synthetic test hours only',{exact:true}).waitFor();
    const logo=pp.locator('.hero-visual img');await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth>0&&im.naturalHeight>0));
    assert.equal(await pp.locator('.product,.extra').count(),5);assert.equal(await pp.locator('#frozen').count(),0);assert.equal(await pp.getByText('Factory',{exact:true}).count(),0);
@@ -410,9 +444,13 @@ try{
    const copy=await pp.locator('.hero-copy').boundingBox(),art=await pp.locator('.hero-visual').boundingBox();assert.ok(width>700?art.x>copy.x+copy.width-2:art.y>=copy.y+copy.height-2);
    assert.ok(await pp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await pp.emulateMedia({reducedMotion:'reduce'});await pp.getByRole('link',{name:'Skip to content',exact:true}).focus();assert.equal(await pp.getByRole('link',{name:'Skip to content',exact:true}).evaluate(e=>getComputedStyle(e).outlineStyle),'solid');assert.equal(await pp.locator('.product').first().evaluate(e=>getComputedStyle(e).transitionDuration),'0s');await pp.locator('h1').click();
-   for(const im of await pp.locator('main img').all()){const src=await im.getAttribute('src');assert.doesNotMatch(src,/18015083942193300|IG.?0016/);if(await im.isVisible()){await im.scrollIntoViewIfNeeded();await im.evaluate(e=>e.decode());assert.ok(await im.evaluate(e=>e.naturalWidth>0));}else{const asset=await pp.request.get(new URL(src,origin).toString());assert.equal(asset.status(),200);assert.match(asset.headers()['content-type'],/image/);}}await pp.evaluate(()=>window.scrollTo(0,0));
+   for(const im of await pp.locator('main img').all()){const src=await im.getAttribute('src');assert.doesNotMatch(src,/18015083942193300|IG.?0016/);if(await im.isVisible()){await im.scrollIntoViewIfNeeded();await im.evaluate(e=>e.decode());assert.ok(await im.evaluate(e=>e.naturalWidth>0));}else{const asset=await pp.request.get(new URL(src,origin).toString());assert.equal(asset.status(),200);assert.match(asset.headers()['content-type'],/image/);}}await pp.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-home.png',fullPage:true});
    await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-public-hero.png',fullPage:false});
+   const cta=await pp.locator('.hero-actions .btn').first().boundingBox();assert.ok(cta.y+cta.height<=height,'Hero CTA above fold');
+   await pp.locator('.truck-location').scrollIntoViewIfNeeded();await pp.screenshot({path:'test-artifacts/screenshots/'+device+'-footer.png',fullPage:false});
+   assert.ok(await pp.locator('.truck-location').evaluate(e=>parseFloat(getComputedStyle(e).paddingTop)>=48));
+   await pp.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    for(const [name,hash] of [['The menu','#menu'],['Our story','#story'],['Pickup','#pickup']]){await pp.getByRole('link',{name:width<=700&&name==='Our story'?'Meet Puna ↗':name,exact:true}).click();assert.equal(new URL(pp.url()).hash,hash)}
    await pp.getByRole('button',{name:'Add Synthetic browser edit to bag',exact:true}).click();await pp.getByRole('button',{name:/Open bag/}).click();await pp.getByRole('dialog',{name:'Your bag'}).waitFor();assert.equal(await pp.getByRole('button',{name:'Place test order',exact:true}).count(),0);await pp.getByRole('button',{name:'Close cart',exact:true}).click();
   }
@@ -445,7 +483,7 @@ try{
    await editor.screenshot({path:'test-artifacts/screenshots/'+device+'-edit.png',animations:'disabled'});
    await editor.getByRole('button',{name:'Close menu item',exact:true}).click();
   }
-  writeFileSync('test-artifacts/screenshots/commit.txt',process.env.GITHUB_SHA+'\n');
+  writeFileSync('test-artifacts/screenshots/commit.txt',(process.env.GITHUB_SHA||execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()+' (local working tree)')+'\n');
  });
 
  await check('owner import screen previews, imports drafts and refreshes both editors',async()=>{
@@ -502,6 +540,26 @@ try{
   await page.goto(origin+'/workspace');await page.waitForURL('**/sign-in');
  });
  await context.close();
+ if(process.env.PUNA_PHASE_C_TESTS==='true'){
+  await check('feature-off kitchen requires no new schema and keeps public preview absent',async()=>{assert.equal((await request('/api/kitchen',{cookie})).status,404);assert.equal((await request('/api/kitchen/availability')).data.enabled,false);assert.equal((await request('/api/puna')).data.kitchenPreview,false);});
+  execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{stdio:'inherit'});
+  const restart=async(enabled)=>{app.kill('SIGTERM');await new Promise(r=>app.once('exit',r));app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,PUNA_CHECKOUT_MODE:'disabled',PUNA_LIVE_KITCHEN_ENABLED:String(enabled),PUNA_KITCHEN_PUBLIC_PREVIEW:String(enabled),PUNA_KITCHEN_FIXTURES:String(enabled),BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production'},stdio:['ignore','pipe','pipe']});app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));let ready=false;for(let n=0;n<60;n++){try{if((await request('/api/kitchen/availability')).data.enabled===enabled){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}assert.ok(ready);};
+  await restart(true);
+  await runKitchenChecks({db,request,check,cookie,staffCookie});
+  await runKitchenBrowser({browser,origin,db,request,check,password});
+  const before=(await db.query('SELECT COUNT(*) n FROM kitchen_lots'))[0][0].n;
+  await restart(false);
+  await check('feature-off rollback preserves kitchen commitments and legacy access without destructive rollback',async()=>{assert.equal((await request('/api/kitchen',{cookie})).status,404);assert.equal((await request('/api/kitchen/availability')).data.enabled,false);assert.equal((await request('/api/operations',{cookie:staffCookie})).status,200);assert.equal((await request('/api/checkout')).data.mode,'disabled');assert.equal((await db.query('SELECT COUNT(*) n FROM kitchen_lots'))[0][0].n,before);assert.equal((await db.query("SELECT COUNT(*) n FROM kitchen_allocations WHERE state='paid'"))[0][0].n,1);});
+ }
+ if(process.env.PUNA_PHASE_D_TESTS==='true'){
+  execFileSync(process.execPath,['tests/apply-ordering-schema.mjs'],{stdio:'inherit'});
+  const restart=async(intake,service=true)=>{app.kill('SIGTERM');await new Promise(r=>app.once('exit',r));app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,PUNA_CHECKOUT_MODE:'disabled',PUNA_LIVE_KITCHEN_ENABLED:'true',PUNA_KITCHEN_PUBLIC_PREVIEW:'true',PUNA_KITCHEN_FIXTURES:'false',PUNA_ORDERING_LOCAL_ENABLED:String(service),PUNA_ORDERING_ACCEPT_NEW:String(intake),BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production'},stdio:['ignore','pipe','pipe']});app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));let ready=false;for(let n=0;n<60;n++){try{if((await request('/api/checkout')).data.mode===(service?'local-simulated':'disabled')){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}assert.ok(ready);};
+  await restart(true);
+  const helpers=await runOrderingChecks({db,request,check,cookie,staffCookie,restart});
+  await runOrderingBrowser({browser,origin,db,check,password,helpers});
+  await restart(false,false);
+  await check('D1 feature-off retains schema and original checkout while local fixtures refuse all actions',async()=>{assert.equal((await request('/api/checkout')).data.mode,'disabled');assert.equal((await request('/api/pickup',{cookie:staffCookie})).status,404);assert.equal((await request('/api/local-fixtures',{method:'POST',body:{action:'run-jobs'},extraHeaders:{'x-local-fixture-key':process.env.PUNA_D1_FIXTURE_SECRET}})).status,404);assert.equal((await request('/api/operations',{cookie:staffCookie})).status,200);});
+ }
  await check('isolated synthetic restore preserves counts, definitions, indexes and foreign keys',async()=>{console.log('Synthetic recovery evidence '+JSON.stringify(await verifySyntheticRecovery()))});
  console.log('RESULT '+passed+' integration checks passed; synthetic data only; no deployment; private magenta restore remains blocked.');
 }finally{
@@ -509,5 +567,6 @@ try{
  if(proxy)await new Promise(resolve=>proxy.close(resolve));
  if(app){app.kill('SIGTERM');await new Promise(resolve=>{app.once('exit',resolve);setTimeout(()=>{app.kill('SIGKILL');resolve()},3000).unref()})}
  await db.end();
+ rmSync(certDirectory,{recursive:true,force:true});
 }
 

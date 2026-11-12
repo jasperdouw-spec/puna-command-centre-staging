@@ -1,3 +1,4 @@
+import {boundedArray} from '@/lib/bounded-array';
 import {z} from 'zod';
 import type {RowDataPacket} from 'mysql2';
 import {database} from '@/lib/db';
@@ -20,7 +21,7 @@ export async function GET(){try{
  return json({products,recipes:calculated,costs,historical,production});
  }catch(e){return failure(e)}}
 const input=z.discriminatedUnion('action',[
- z.object({action:z.literal('import-products'),rows:z.array(sourceProduct).min(1).max(100)}).strict(),
+ z.object({action:z.literal('import-products'),rows:boundedArray(sourceProduct,100,1)}).strict(),
  z.object({action:z.literal('commerce'),product:commerceFields}).strict(),
  z.object({action:z.literal('recipe'),recipe:recipeInput}).strict(),
  z.object({action:z.literal('produce'),key:z.string().uuid(),recipeId:z.string().uuid(),batches:z.number().int().positive().max(1000),output:z.number().int().positive().max(100000),waste:z.number().int().min(0).max(100000)}).strict(),

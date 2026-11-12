@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
+import {pageMetadata,siteOrigin} from "@/lib/site-metadata";
 import "./globals.css";
 import "./operations.css";
 import "./customer.css";
 
 export const metadata: Metadata = {
-  title: "PUNA — South American Surf Fuel",
-  description: "West Coast empanadas, made from scratch. Explore the PUNA menu and our story.",
-  robots: { index: false, follow: false },
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-  },
+  metadataBase: new URL(siteOrigin),
+  ...pageMetadata('PUNA — West Coast Empanadas', 'Andean roots. West Coast life. Explore PUNA’s handmade empanadas and find the food truck at Canadian Princess in Ucluelet.'),
+  icons: {icon:'/favicon.svg',shortcut:'/favicon.svg'},
 };
 
 export default function RootLayout({

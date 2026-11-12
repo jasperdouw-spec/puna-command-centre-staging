@@ -36,6 +36,7 @@ export async function saleProducts(c:PoolConnection,ids:string[],lock=false){
  return rows.map(r=>({...r,price_cents:Number(r.price_cents),version:Number(r.version),tax_rules:r.tax_rules===null?null:JSON.parse(r.tax_rules),available:!!r.available,price_confirmed:!!r.price_confirmed,ingredients_confirmed:!!r.ingredients_confirmed,known:!!r.known})) as SaleProduct[];
 }
 export async function release(c:PoolConnection,order:RowDataPacket,actor:number|null,reason:string){
+ if(order.batch_id===null)throw new CommerceError('USE_KITCHEN_ORDER_PATH');
  if(order.hold_status==='released')return;
  if(['inflight','uncertain','paid'].includes(order.payment_status))throw new CommerceError('PAYMENT_RECONCILIATION_REQUIRED');
  const [lines]=await c.query<RowDataPacket[]>('SELECT * FROM pickup_order_lines WHERE order_id=? ORDER BY product_id',[order.id]);
@@ -49,7 +50,7 @@ export async function release(c:PoolConnection,order:RowDataPacket,actor:number|
  await audit(c,actor,'release:'+reason,'pickup_order',order.id);
 }
 export async function expireDefiniteHolds(c:PoolConnection,now:number){
- const [orders]=await c.query<RowDataPacket[]>("SELECT * FROM pickup_orders WHERE hold_status='held' AND payment_status IN ('unpaid','failed') AND expires_at<=? ORDER BY id FOR UPDATE",[sqlDate(now)]);
+ const [orders]=await c.query<RowDataPacket[]>("SELECT * FROM pickup_orders WHERE batch_id IS NOT NULL AND hold_status='held' AND payment_status IN ('unpaid','failed') AND expires_at<=? ORDER BY id FOR UPDATE",[sqlDate(now)]);
  for(const o of orders)await release(c,o,null,'expired');
 }
 export async function rateLimit(c:PoolConnection,key:string,now:number,limit=15){
