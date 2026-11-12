@@ -22,7 +22,7 @@ globalThis.fetch=async function(input,init){
   if(path==='/v2/locations')return reply({locations:[{id:'synthetic-location',name:'Synthetic location',status:'ACTIVE',country:'CA',currency:'CAD',timezone:'America/Vancouver'}]});
   if(path==='/reporting/v1/meta')return reply({cubes:[{name:'Sales',type:'view',measures:['net_sales','order_count','top_line_product_sales','discounts_amount','itemized_returns','refunds_by_amount_amount','tips_amount','sales_tax_amount','total_collected_amount'].map(n=>({name:'Sales.'+n,type:'number'})),dimensions:[{name:'Sales.local_reporting_timestamp',type:'time'},{name:'Sales.location_id',type:'string'}],segments:[]}]});
   if(path==='/reporting/v1/load'){assert.equal(init.method,'POST');assert.equal(body.query.timezone,undefined);return reply({data:[{'Sales.local_reporting_timestamp.month':'2025-06-01T00:00:00.000','Sales.location_id':'synthetic-location',...Object.fromEntries(body.query.measures.map(m=>[m,m.endsWith('order_count')?1:m.endsWith('net_sales')?7:0]))}]});}
-  if(/^\/v2\/orders\/pos-[A-Za-z0-9_-]+$/.test(path)){assert.equal(init.method,'GET');return reply({order:JSON.parse(readFileSync('test-artifacts/pos-provider.json','utf8'))[path.split('/').pop()]});}
+  if(/^\/v2\/orders\/pos-[A-Za-z0-9_-]+$/.test(path)){assert.equal(init.method,'GET');return reply({order:JSON.parse(readFileSync(new URL('../test-artifacts/pos-provider.json',import.meta.url),'utf8'))[path.split('/').pop()]});}
   if(path==='/v2/orders/search'){
    assert.equal(init.method,'POST');assert.deepEqual(body.location_ids,['synthetic-location']);assert.equal(body.limit,100);
    if(body.query.filter.date_time_filter.updated_at.start_at.startsWith('2024-08-'))return reply({});

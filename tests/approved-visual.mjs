@@ -1,15 +1,25 @@
-// Element screenshots round fractional page coordinates outwards. An inserted
-// section can therefore change PNG height/rasterization without changing design.
-// Align only the captured section to the pixel grid, identically before/after;
-// restore its inline style afterwards. Full-page review images stay untouched.
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+import sharp from 'sharp';
+// Compare approved section content and computed design properties exactly. Pixel
+// comparison uses a small perceptual thumbnail to tolerate browser subpixel text
+// and responsive-photo resampling; full original screenshots remain reviewable.
+const properties=['fontFamily','fontSize','fontWeight','lineHeight','letterSpacing','color','backgroundColor','paddingTop','paddingBottom','paddingLeft','paddingRight','gap','borderRadius'];
 export async function captureApprovedSection(section,path){
  await section.scrollIntoViewIfNeeded();
  for(const image of await section.locator('img').all())await image.evaluate(i=>i.decode());
- const original=await section.evaluate(el=>{
-  const style=el.getAttribute('style'),r=el.getBoundingClientRect();
-  el.style.transform=`translate(${Math.round(r.x)-r.x}px,${Math.round(r.y)-r.y}px)`;
-  return style;
- });
- try{return await section.screenshot({path,animations:'disabled'});}
- finally{await section.evaluate((el,style)=>{if(style===null)el.removeAttribute('style');else el.setAttribute('style',style);},original);}
+ const signature=await section.evaluate((el,keys)=>[el,...el.querySelectorAll('*')].map(e=>({tag:e.tagName,text:e.childElementCount?null:e.textContent,src:e.getAttribute('src'),style:Object.fromEntries(keys.map(k=>[k,getComputedStyle(e)[k]]))})),properties);
+ writeFileSync(path+'.json',JSON.stringify(signature));
+ return section.screenshot({path,animations:'disabled'});
+}
+export async function compareApprovedSection(actualPath,baselinePath){
+ assert.deepEqual(JSON.parse(readFileSync(actualPath+'.json')),JSON.parse(readFileSync(baselinePath+'.json')),'Approved content and design tokens');
+ const [a,b]=await Promise.all([sharp(actualPath).metadata(),sharp(baselinePath).metadata()]);
+ assert.equal(a.width,b.width);assert.ok(Math.abs(a.height-b.height)<=1,'Section height changed');
+ const height=Math.round(b.height*128/b.width);
+ const pixels=await Promise.all([actualPath,baselinePath].map(p=>sharp(p).resize(128,height,{fit:'fill'}).removeAlpha().raw().toBuffer()));
+ let difference=0,changed=0;for(let i=0;i<pixels[0].length;i++){const d=Math.abs(pixels[0][i]-pixels[1][i]);difference+=d;if(d>24)changed++;}
+ const mean=difference/pixels[0].length,ratio=changed/pixels[0].length;
+ console.log('VISUAL_METRIC '+JSON.stringify({actualPath,mean,ratio}));
+ assert.ok(mean<3.5&&ratio<0.02,'Approved section perceptual change: '+JSON.stringify({mean,ratio}));
 }
