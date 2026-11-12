@@ -97,6 +97,20 @@ jobs:
           if [ -d "$RUNNER_TEMP/puna-candidate/test-artifacts/screenshots" ]; then
             cp -R "$RUNNER_TEMP/puna-candidate/test-artifacts/screenshots" test-artifacts/
           fi
+      - name: Retain selected synthetic review images in text evidence
+        if: ${{ always() }}
+        run: |
+          python3 - <<'PYIMAGE'
+          import pathlib, base64
+          names=['inventory-kitchen-overview.png','inventory-display-panel-desktop.png','inventory-display-panel-mobile.png','inventory-baseline-desktop-hero.png','inventory-preserved-desktop-hero.png','inventory-baseline-mobile-story.png','inventory-preserved-mobile-story.png']
+          for name in names:
+              path=pathlib.Path('test-artifacts/screenshots')/name
+              if not path.exists(): continue
+              raw=path.read_bytes()
+              if len(raw)>2000000: continue
+              value=base64.b64encode(raw).decode()
+              for n in range(0,len(value),8000): print('PUNA_VISUAL '+name+' '+str(n)+' '+value[n:n+8000])
+          PYIMAGE
       - name: Upload synthetic visual review only
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
