@@ -25,7 +25,7 @@ export default function LiveKitchen(){
  const [product,setProduct]=useState(''),[quantity,setQuantity]=useState(6),[online,setOnline]=useState(2),[minutes,setMinutes]=useState(25),[countReason,setCountReason]=useState(''),[fixtureLot,setFixtureLot]=useState(''),[fixtureQty,setFixtureQty]=useState(2);
  const client=useRef(''),current=useRef<Data|null>(null),root=useRef<HTMLElement>(null),clock=useRef({at:0,received:0}),inFlight=useRef(false);
  const visible=()=>document.visibilityState==='visible'&&!!root.current?.getClientRects().length;
- const request=async(body:unknown)=>{const r=await fetch('/api/kitchen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json();if(!r.ok)throw Error(d.error||'Kitchen unavailable');return d;};
+ const request=async(body:unknown)=>{const r=await fetch('/api/kitchen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(8000)}),d=await r.json();if(!r.ok)throw Error(d.error||'Kitchen unavailable');return d;};
  const load=useCallback(async()=>{if(!client.current)return;const d:Data=await request({action:'inspect',clientId:client.current});current.current=d;clock.current={at:Date.parse(d.serverTime),received:performance.now()};setNow(clock.current.at);setData(d);return d;},[]);
  useEffect(()=>{
   client.current=sessionStorage.getItem('puna-kitchen-screen')||crypto.randomUUID();sessionStorage.setItem('puna-kitchen-screen',client.current);

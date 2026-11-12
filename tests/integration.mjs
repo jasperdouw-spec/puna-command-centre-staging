@@ -260,7 +260,7 @@ try{
  assert.equal((await request('/api/team',{method:'POST',cookie,body:{action:'revoke',userId:r[0].id}})).status,200);assert.equal((await request('/api/operations',{cookie:session})).status,401);
  });
 
- browser=await chromium.launch(process.env.PUNA_DISPOSABLE_LOCAL_TESTS==='true'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu']}:{});
+ browser=await chromium.launch(process.platform==='darwin'&&process.env.PUNA_DISPOSABLE_LOCAL_TESTS==='true'?{executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu']}:{});
  // D2 evidence must not retain QR/status credentials, including rendered QR images.
  if(process.env.PUNA_CAPTURE_SYNTHETIC_SCREENSHOTS==='false'){
   const newContext=browser.newContext.bind(browser);
