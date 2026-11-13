@@ -1,0 +1,19 @@
+
+
+PUNA kitchen workflow and dashboard — staging release verified 13 November 2026 UTC
+
+Released to staging only: puna-kitchen-ux-c73940f-20261112.zip, Completed / Current in Hostinger (interface timestamp November 12, 19:56:10). Tested application source tree baf780c7f6f2788b40fb189fea8bf542a019ac3a; local c73940fb4a3cf6e049332aaa200e098729892f3e matches GitHub d733e98900d1028e703c6c28c4015cd7fb6cd545. Draft PR: https://github.com/jasperdouw-spec/puna-command-centre-staging/pull/3 .
+
+Fixed cabinet visibility independently of disabled ordering; clear effective kitchen status, review/connect/Open sequence, safe visibility/offline recovery and same-page cabinet preview; visible oven batch controls, partial confirmations and cancellation; simplified Batch tools; larger accessible analytics charts. Scorecards, donut, approved customer branding and calculations preserved.
+
+Passed 186 disposable integration checks plus 70 domain/boundary checks; typecheck, production builds and design regression passed. CI: https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/43354229829 . Hosted read-back preserved ledger version 25, five lots, 14 ready units and 24 audit events. All five published empanadas now return with orderable=false. Expired physical review/heartbeat correctly pauses availability. No hosted fake count or opening attestation was made. Checkout, live payments and automatic Square deductions remain disabled.
+
+Physical Lenovo acceptance remains outstanding: the session denied the ADB server socket. Touch-browser simulation passed; actual Android background/Wi-Fi/lock behavior is not claimed. Previous native Hostinger backup remains; fresh manual backup was unavailable under its 24-hour cooldown. No schema changes or private database restore. Application rollback archive retained and hashed. Complete screenshot-archive browser download was rejected by automatic approval review due to unverifiable origin; 18 selected screenshots were already saved, without bypassing that gate.
+
+Completion report: https://drive.google.com/file/d/1gATnWti9FTZzTZPp3i8OmPmS7jj5ViEP/view
+Evidence backup: https://drive.google.com/file/d/1_xkaOc6TM-wa2HICVevddCtxMElcZk1Z/view
+Manifest: https://drive.google.com/file/d/1fm9R9M834I2fQCSh3D8ZgBXLhPp_ygzw/view
+Tablet acceptance: https://drive.google.com/file/d/1KnXCgQoLd2Bp_3Q-7Ni_a1DzTiAjCkLK/view
+
+Pacific Core: /Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/docs/kitchen-ux ; backup test-artifacts/backups/puna-kitchen-ux-20261112-evidence.zip. ZIP SHA-256 0c988aee29b7f23f98a95236456a95fd2ba7e5b5eaac14271376b021e792cca4, 9,395,446 bytes. Local archive reopened and all 26 evidence files verified, plus 258 source entries. Drive report/tablet/manifest read back exactly; ZIP size and destination confirmed. Remote ZIP bytes were not independently downloaded and hashed. Previous checkpoints preserved; secrets excluded.
+

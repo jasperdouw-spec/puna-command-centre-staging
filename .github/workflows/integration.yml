@@ -1,7 +1,7 @@
 name: Isolated application integration
 on:
   push:
-    branches: [review/puna-isolated-integration, codex/puna-phase-b-20261108, codex/live-inventory-20261111]
+    branches: [review/puna-isolated-integration, codex/puna-phase-b-20261108, codex/live-inventory-20261111, codex/kitchen-ux-20261112]
 permissions:
   contents: read
 concurrency:
@@ -64,8 +64,11 @@ jobs:
       - name: Isolate synthetic checkout secrets
         run: |
           echo "PUNA_TEST_RUN_ID=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
-          echo "PUNA_D1_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-          echo "PUNA_D1_FIXTURE_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          for puna_key in PUNA_D1_SECRET PUNA_D1_FIXTURE_SECRET; do
+            puna_test_secret=$(openssl rand -hex 32)
+            echo "::add-mask::$puna_test_secret"
+            echo "$puna_key=$puna_test_secret" >> "$GITHUB_ENV"
+          done
           echo "PUNA_D1_ORIGIN=https://localhost:3443" >> "$GITHUB_ENV"
       - name: Typecheck and build the freshly extracted candidate
         env:
@@ -80,6 +83,7 @@ jobs:
           node tests/sales-dashboard-domain.mjs
           node tests/kitchen-domain.mjs
           node tests/live-inventory-domain.mjs
+          node tests/chart-domain.mjs
           npm run typecheck
           npm run build
           cp -R public .next/standalone/public
@@ -102,7 +106,7 @@ jobs:
         run: |
           python3 - <<'PYIMAGE'
           import pathlib, base64
-          names=['inventory-kitchen-overview.png','inventory-display-panel-desktop.png','inventory-display-panel-mobile.png','inventory-baseline-mobile-hero.png','inventory-preserved-mobile-hero.png','inventory-baseline-desktop-story.png','inventory-preserved-desktop-story.png','inventory-baseline-desktop-hero.png','inventory-preserved-desktop-hero.png','inventory-baseline-mobile-story.png','inventory-preserved-mobile-story.png']
+          names=['dashboard-chart-before.png','dashboard-chart-after.png','dashboard-cards-before.png','dashboard-cards-after.png','inventory-batch-tools.png','inventory-kitchen-overview.png','inventory-display-panel-desktop.png','inventory-display-panel-mobile.png','inventory-baseline-mobile-hero.png','inventory-preserved-mobile-hero.png','inventory-baseline-desktop-story.png','inventory-preserved-desktop-story.png','inventory-baseline-desktop-hero.png','inventory-preserved-desktop-hero.png','inventory-baseline-mobile-story.png','inventory-preserved-mobile-story.png']
           for name in names:
               path=pathlib.Path('test-artifacts/screenshots')/name
               if not path.exists(): continue

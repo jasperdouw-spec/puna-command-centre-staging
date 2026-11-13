@@ -4,7 +4,7 @@ import type {PoolConnection,RowDataPacket} from 'mysql2/promise';
 import {transaction,audit,sqlDate} from './commerce';
 import type {Role} from './auth';
 import type {KitchenInput} from './kitchen-input';
-import {active,capacity,reserved,adjustment,freeReady,freshness,effectiveStatus,expiresAutomatically,READ_REVIEW_SECONDS,HEARTBEAT_SECONDS,STOCK_REVIEW_SECONDS,type Lot,type Allocation,type KitchenState,type Channel,type Stage} from './kitchen-model';
+import {active,capacity,reserved,adjustment,freeReady,freshness,connectionReason,effectiveStatus,expiresAutomatically,READ_REVIEW_SECONDS,HEARTBEAT_SECONDS,STOCK_REVIEW_SECONDS,type Lot,type Allocation,type KitchenState,type Channel,type Stage} from './kitchen-model';
 
 export class KitchenError extends Error {constructor(message:string,public status=409){super(message);}}
 export function kitchenEnabled(){return process.env.PUNA_LIVE_KITCHEN_ENABLED==='true';}
@@ -24,11 +24,11 @@ async function read(c:PoolConnection,now:number){
  const [lines]=await c.query<RowDataPacket[]>('SELECT * FROM kitchen_allocation_lines ORDER BY allocation_id,lot_id');
  const allocations:Allocation[]=orders.map(a=>({id:a.id,channel:a.channel,state:a.state,synthetic:!!a.synthetic,managedOrder:!!a.order_id,label:a.label,pickupAt:iso(a.pickup_at),expiresAt:iso(a.expires_at),createdAt:iso(a.created_at),lines:lines.filter(l=>l.allocation_id===a.id).map(l=>({lotId:l.lot_id,quantity:Number(l.quantity),readyUnits:Number(l.ready_units),setAsideUnits:Number(l.set_aside_units)}))}));
  const [publicProducts]=await c.query<RowDataPacket[]>("SELECT p.id FROM products p JOIN commerce_products m ON m.product_id=p.id WHERE p.kind='fresh' AND p.available=1 AND m.publication='staging'");
- const [products]=await c.query<RowDataPacket[]>("SELECT id,name,price_cents FROM products WHERE kind='fresh' ORDER BY name");
+ const [products]=await c.query<RowDataPacket[]>("SELECT p.id,p.name,p.price_cents,COALESCE(m.category,'empanada') category,m.publication FROM products p LEFT JOIN commerce_products m ON m.product_id=p.id WHERE p.kind='fresh' ORDER BY p.name");
  let posIssues:string[]=[];if(process.env.PUNA_SQUARE_POS_ENABLED==='true'){const [issues]=await c.query<RowDataPacket[]>('SELECT id FROM kitchen_pos_issues WHERE resolved_at IS NULL');posIssues=issues.map(r=>String(r.id));}
  const effective=effectiveStatus(state,now,lots,allocations);if(posIssues.length&&effective.status!=='closed')effective.status='paused';
  const [events]=await c.query<RowDataPacket[]>('SELECT kind,actor_id,created_at,details FROM kitchen_events ORDER BY created_at DESC,operation_key DESC LIMIT 40');
- return {publicProductIds:publicProducts.map(p=>String(p.id)),history:events.map(e=>({kind:String(e.kind),actorId:Number(e.actor_id),at:iso(e.created_at),details:JSON.parse(e.details)})),state,lots,allocations,products:products.map(p=>({id:String(p.id),name:String(p.name),priceCents:Number(p.price_cents)})),serverTime:new Date(now).toISOString(),...effective,issues:{...effective.issues,pos:posIssues},heartbeatSeconds:HEARTBEAT_SECONDS,fixtures:kitchenFixtures()};
+ return {publicProductIds:publicProducts.map(p=>String(p.id)),displayProductIds:products.filter(p=>p.publication==='staging'&&p.category==='empanada').map(p=>String(p.id)),connectionReason:connectionReason(state,now),history:events.map(e=>({kind:String(e.kind),actorId:Number(e.actor_id),at:iso(e.created_at),details:JSON.parse(e.details)})),state,lots,allocations,products:products.map(p=>({id:String(p.id),name:String(p.name),priceCents:Number(p.price_cents),category:String(p.category)})),serverTime:new Date(now).toISOString(),...effective,issues:{...effective.issues,pos:posIssues},heartbeatSeconds:HEARTBEAT_SECONDS,fixtures:kitchenFixtures()};
 }
 export type KitchenSnapshot=Awaited<ReturnType<typeof read>>;
 export async function kitchenSnapshot(){if(!kitchenEnabled())fail('Live Kitchen is disabled',404);return transaction(read);}
@@ -201,10 +201,12 @@ export async function kitchenAction(actor:Actor,p:KitchenInput){
 export async function publicAvailability(){
  if(!publicKitchenEnabled())return {enabled:false as const};
  const s=await kitchenSnapshot();
- return {enabled:true as const,preview:true,serverTime:s.serverTime,heartbeatAt:s.state.heartbeatAt,validUntil:s.state.heartbeatAt&&s.state.reviewedAt?new Date(Math.min(Date.parse(s.state.heartbeatAt)+HEARTBEAT_SECONDS*1000,Date.parse(s.state.reviewedAt||'')+STOCK_REVIEW_SECONDS*1000)).toISOString():null,status:s.status,fresh:s.fresh,
-  products:s.products.filter(p=>s.publicProductIds.includes(p.id)).map(p=>{
-   const lots=s.lots.filter(l=>l.productId===p.id&&l.public),ready=lots.reduce((n,l)=>n+freeReady(l,s.allocations),0),batches=lots.filter(l=>l.online_baking+l.truck_baking>0).map(l=>({quantity:l.online_baking+l.truck_baking,estimate:l.estimatedReadyAt}));
-   return {id:p.id,name:p.name,priceCents:p.priceCents,known:lots.length>0,ready:s.status==='open'?ready:0,baking:s.status==='open'?batches.reduce((n,b)=>n+b.quantity,0):0,batches:s.status==='open'?batches:[],estimate:batches.map(b=>b.estimate).sort()[0]||null};
+ // Publication controls visibility; the separate sale flag still controls checkout.
+ // Never enable sales or expose a draft product merely to populate the cabinet.
+ return {enabled:true as const,preview:true,serverTime:s.serverTime,heartbeatAt:s.state.heartbeatAt,validUntil:s.state.heartbeatAt&&s.state.reviewedAt?new Date(Math.min(Date.parse(s.state.heartbeatAt)+HEARTBEAT_SECONDS*1000,Date.parse(s.state.reviewedAt||'')+STOCK_REVIEW_SECONDS*1000)).toISOString():null,status:s.status,fresh:s.fresh,connectionReason:s.connectionReason,
+  products:s.products.filter(p=>s.displayProductIds.includes(p.id)).map(p=>{
+   const lots=s.lots.filter(l=>l.productId===p.id),ready=lots.reduce((n,l)=>n+freeReady(l,s.allocations),0),batches=lots.filter(l=>l.online_baking+l.truck_baking>0).map(l=>({quantity:l.online_baking+l.truck_baking,estimate:l.estimatedReadyAt}));
+   return {id:p.id,name:p.name,priceCents:p.priceCents,orderable:s.publicProductIds.includes(p.id),known:lots.length>0,ready:s.status==='open'?ready:0,baking:s.status==='open'?batches.reduce((n,b)=>n+b.quantity,0):0,batches:s.status==='open'?batches:[],estimate:s.status==='open'?batches.map(b=>b.estimate).sort()[0]||null:null};
   })};
 }
 export type PublicAvailability=Awaited<ReturnType<typeof publicAvailability>>;

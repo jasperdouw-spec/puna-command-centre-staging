@@ -5,6 +5,7 @@ import {today,addDays,monthStart,comparisonText,type Metrics,type PeriodKind} fr
 import type {DashboardData} from '@/lib/sales-dashboard';
 import SalesLedger from './sales-ledger';
 import './sales-dashboard.css';
+import Chart from './sales-chart';
 type Data=Extract<DashboardData,{current:unknown}>;
 type Metric=keyof Metrics;
 const titles:Record<Metric,string>={net:'Net sales',transactions:'Transactions',aov:'Average order value',quantity:'Items sold',refunds:'Item refunds',discounts:'Discounts',tax:'Taxes',tips:'Tips'};
@@ -13,18 +14,6 @@ const secondary:Metric[]=['refunds','discounts','tax','tips'];
 const money=new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD'}),number=new Intl.NumberFormat('en-CA',{maximumFractionDigits:4});
 function format(v:number|null,k:Metric){return v===null?'Unavailable':['transactions','quantity'].includes(k)?number.format(v):money.format(v/100);}
 function when(v:unknown){return v?new Date(String(v)).toLocaleString('en-CA',{timeZone:'America/Vancouver',dateStyle:'medium',timeStyle:'short'}):'Unverified';}
-function Chart({points,metric,small=false}:{points:Data['current']['points'];metric:Metric;small?:boolean}){
- const values=points.map(p=>p.metrics[metric]),known=values.filter((v):v is number=>v!==null);
- if(!known.length)return <div className={small?'sd-spark-empty':'sd-chart-empty'}>{small?'No observed trend':'No reliable observations for this chart. Missing buckets are unknown, not zero sales.'}</div>;
- const min=Math.min(0,...known),max=Math.max(1,...known),x=(i:number)=>24+i*652/Math.max(1,points.length-1),y=(v:number)=>170-(v-min)/(max-min)*142;
- let connected=false;const path=values.map((v,i)=>{if(v===null){connected=false;return '';}const part=`${connected?'L':'M'} ${x(i)} ${y(v)}`;connected=true;return part;}).join(' ');
- return <svg className={small?'sd-spark':'sd-chart'} viewBox="0 0 700 210" role={small?undefined:'img'} aria-hidden={small||undefined} aria-label={small?undefined:titles[metric]+' by '+(points.length>0&&points[0].key.includes('T')?'hour':'day')+'. Missing observations leave gaps.'}>
- {!small&&<><line x1="24" x2="676" y1={y(0)} y2={y(0)} className="sd-axis"/><text x="24" y="16">{format(max,metric)}</text></>}
- <path d={path} fill="none" stroke="currentColor" strokeWidth={small?6:3} strokeLinecap="round" strokeLinejoin="round"/>
- {values.map((v,i)=>v===null?null:<circle key={points[i].key} cx={x(i)} cy={y(v)} r={small?4:3.5} fill="currentColor"><title>{points[i].label}: {format(v,metric)}</title></circle>)}
- {!small&&points.map((p,i)=>i%Math.ceil(points.length/6)===0||i===points.length-1?<text key={p.key} x={x(i)} y="202" textAnchor={i===0?'start':i===points.length-1?'end':'middle'}>{p.label}</text>:null)}
- </svg>;
-}
 const colors=['#a66b16','#697151','#c6a465','#443f35','#9f9b88','#dfd1b7'];
 function Breakdown({products,mode}:{products:Data['current']['products'];mode:'net'|'quantity'}){
  const sorted=[...products].sort((a,b)=>(b.metrics[mode]||0)-(a.metrics[mode]||0)),valid=sorted.length>0&&sorted.every(p=>p.metrics[mode]!==null&&p.metrics[mode]!>=0),total=sorted.reduce((s,p)=>s+(p.metrics[mode]||0),0);
