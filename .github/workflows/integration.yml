@@ -85,6 +85,7 @@ jobs:
           node tests/live-inventory-domain.mjs
           node tests/chart-domain.mjs
           node tests/service-domain.mjs
+          node --test tests/validation-boundaries.mjs tests/d2-boundaries.mjs
           npm run typecheck
           npm run build
           cp -R public .next/standalone/public
