@@ -23,7 +23,7 @@ async function applyLinks(c:PoolConnection,state:RowDataPacket,actor:number|null
   const changed=l.status!==status||l.commercial_hash!==v?.commercialHash||price!==null&&Number(l.price_cents)!==price;
   const tax=v?.taxes?JSON.stringify(v.taxes.map(t=>({...t,deposit_taxable:!!l.deposit_taxable}))):null;
   // Keep the last verified price if Square removes/archives/invalidates the item.
-  await c.execute('UPDATE square_catalog_links SET status=?,verified_price_cents=COALESCE(?,verified_price_cents),verified_at=IF(?=\'verified\',?,verified_at),commercial_hash=?,configuration_hash=?,tax_snapshot=? WHERE product_id=?',[status,price,status,sqlDate(now),v?.commercialHash||null,v?.configurationHash||null,tax,l.product_id]);
+  await c.execute('UPDATE square_catalog_links SET status=?,verified_price_cents=COALESCE(?,verified_price_cents),verified_at=IF(?,?,verified_at),commercial_hash=?,configuration_hash=?,tax_snapshot=? WHERE product_id=?',[status,price,status==='verified',sqlDate(now),v?.commercialHash||null,v?.configurationHash||null,tax,l.product_id]);
   if(changed){
    await history(c,l.product_id,actor,'provider-sync',{previous:{priceCents:Number(l.price_cents),status:l.status,commercialHash:l.commercial_hash},current:{priceCents:price,status,variation:v||null}},now);
    await c.execute('UPDATE products SET price_cents=COALESCE(?,price_cents),version=version+1 WHERE id=?',[price,l.product_id]);
