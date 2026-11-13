@@ -1,7 +1,7 @@
 name: Isolated application integration
 on:
   push:
-    branches: [review/puna-isolated-integration, codex/puna-phase-b-20261108, codex/live-inventory-20261111, codex/kitchen-ux-20261112]
+    branches: [review/puna-isolated-integration, codex/puna-phase-b-20261108, codex/live-inventory-20261111, codex/kitchen-ux-20261112, codex/unified-menu-20261112]
 permissions:
   contents: read
 concurrency:
@@ -84,6 +84,7 @@ jobs:
           node tests/kitchen-domain.mjs
           node tests/live-inventory-domain.mjs
           node tests/chart-domain.mjs
+          node tests/service-domain.mjs
           npm run typecheck
           npm run build
           cp -R public .next/standalone/public
@@ -106,7 +107,7 @@ jobs:
         run: |
           python3 - <<'PYIMAGE'
           import pathlib, base64
-          names=['dashboard-chart-before.png','dashboard-chart-after.png','dashboard-cards-before.png','dashboard-cards-after.png','inventory-batch-tools.png','inventory-kitchen-overview.png','inventory-display-panel-desktop.png','inventory-display-panel-mobile.png','inventory-baseline-mobile-hero.png','inventory-preserved-mobile-hero.png','inventory-baseline-desktop-story.png','inventory-preserved-desktop-story.png','inventory-baseline-desktop-hero.png','inventory-preserved-desktop-hero.png','inventory-baseline-mobile-story.png','inventory-preserved-mobile-story.png']
+          names=['unified-menu-before-desktop.png','unified-menu-before-mobile.png','d1-08-mixed-checkout.png','inventory-kitchen-tablet.png','dashboard-chart-before.png','dashboard-chart-after.png','dashboard-cards-before.png','dashboard-cards-after.png','inventory-batch-tools.png','inventory-kitchen-overview.png','inventory-display-panel-desktop.png','inventory-display-panel-mobile.png','inventory-baseline-mobile-hero.png','inventory-preserved-mobile-hero.png','inventory-baseline-desktop-story.png','inventory-preserved-desktop-story.png','inventory-baseline-desktop-hero.png','inventory-preserved-desktop-hero.png','inventory-baseline-mobile-story.png','inventory-preserved-mobile-story.png']
           for name in names:
               path=pathlib.Path('test-artifacts/screenshots')/name
               if not path.exists(): continue
