@@ -16,7 +16,7 @@ export default function LiveKitchen(){
  const [product,setProduct]=useState(''),[quantity,setQuantity]=useState(6),[online,setOnline]=useState(2),[countReason,setCountReason]=useState('');
  const send=sendAction;
  const fresh=!!data&&freshness(data.state,now)&&data.fresh,blocked=busy||review||!fresh||authExpired,manager=data?.role==='owner'||data?.role==='manager',owns=data?.state.heartbeatClient===clientId&&data?.state.heartbeatActor===data?.actorId;
- const repairDisabled=busy||review||authExpired||!data?.state.reviewedAt||now<Date.parse(data.state.reviewedAt)||now>=Date.parse(data.state.reviewDueAt||'');
+ const repairDisabled=busy||review||authExpired||!data?.state.reviewedAt||!data?.state.reviewDueAt||now<Date.parse(data.state.reviewedAt)||now>=Date.parse(data.state.reviewDueAt||'');
  const status=data?(data.status==='paused'?'Paused':effectiveStatus(data.state,now,data.lots,data.allocations).status==='open'?'Open':effectiveStatus(data.state,now,data.lots,data.allocations).status==='closed'?'Closed':'Paused'):'Closed';
  const queue=data?.allocations.filter(a=>active(a.state)||a.state==='late_exception')||[],totals=data?.lots.reduce((sum,l)=>{const n=capacity(l,data.allocations);return {ready:sum.ready+n.ready,baking:sum.baking+n.baking,reserved:sum.reserved+n.reserved,online:sum.online+n.online,truck:sum.truck+n.truck};},{ready:0,baking:0,reserved:0,online:0,truck:0});
  return <section className="lk" ref={root} aria-label="Live Kitchen"><header className="lk-heading"><div><p className="lk-kicker">PUNA / LIVE KITCHEN</p><h2>Keep the good food moving.</h2><p>Counted food. One ledger. Protected allocations.</p></div><span className={'lk-status '+(status==='Open'?'lk-open':'')}>{status}</span></header>
