@@ -1,0 +1,18 @@
+
+PUNA MENU PUBLISHING — VERIFIED STAGING CHECKPOINT — 13 NOVEMBER 2026
+
+The publishing defect is repaired and all five approved add-ons are now Published on staging: PUNA Chimichurri $3.00 and Sanpellegrino Aranciata, Aranciata Rossa, Limonata and Pompelmo $3.50 each, all CAD before tax. One Chimichurri card and one four-flavour Drinks card extend the original unified menu. Existing Square variation identities and prices were preserved. Blank ingredient/allergen fields remain explicitly unverified; neutral descriptions make no unsupported food claims.
+
+The old all-in-one publication validator rejected blank ingredient fields and buried its error. Presentation review is now separate from food verification, with focused success/error feedback, immediate Published state, recovery after a failed follow-up refresh and live customer refresh. Hosted publish/unpublish/republish succeeded. The bag suggested two cups for four empanadas and optional drinks, and only explicit additions changed the subtotal from $32 to $45; the preview bag was then emptied with no order/reservation/payment. All 13 kitchen lots, stock audit, allocations and operating state were preserved.
+
+Hostinger completed the d272b42 source release; equivalent GitHub application commit 865908d, source tree 1622f7e8c44f0fd0119020da5996ece42c2ce7ce. Final CI passed 232 isolated integration checks, 92 domain checks, 25 boundary tests, image processing, typecheck and production build. Approved hero and Story comparisons passed. Hosted desktop/phone/tablet layouts passed; physical Lenovo acceptance remains outstanding because ADB device access was blocked. Checkout, live payments and automatic Square deductions remain disabled. Existing provider address/tax/deposit and food verification gates remain for live commerce; pickup stays Ucluelet only.
+
+Release report: https://drive.google.com/file/d/1XVy9mLY01Lf0C8SDBzUqb8Cxmx-HjjiV/view
+Implementation and rollback: https://drive.google.com/file/d/1qdPvhlatL-RPcgl2rI0G2gYyWPBg4Hm3/view
+Tablet acceptance: https://drive.google.com/file/d/1fjaHP8MNifvrDLgyOLOJb9egjLbhb5vL/view
+Source and acceptance evidence: https://drive.google.com/file/d/1BIYbU8_tTw88Q2b1ZsFkP7qQp3D9ifIh/view
+CI: https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/43405748186
+
+All three Drive documents exactly match their Pacific Core copies. The 16-entry source/screenshots/evidence archive passed local entry readback; its Drive checksum is checked against the local archive in VERIFICATION.json. Local documentation: /Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/docs/menu-publishing/. Evidence: test-artifacts/menu-publishing/. Rollback uses the preserved prior 37ca6cc Square-compatible application without resetting current stock or product history. Earlier checkpoints are retained.
+
+

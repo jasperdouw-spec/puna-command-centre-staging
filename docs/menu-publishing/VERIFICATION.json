@@ -1,0 +1,131 @@
+{
+  "date": "2026-11-13",
+  "environment": "staging.punaempanadas.ca",
+  "source": {
+    "localCommit": "d272b42225cb37a341ce45fd5b727ce52410981b",
+    "remoteCommit": "865908d0c4ee4486506633980ae4e7bdba5a68ec",
+    "tree": "1622f7e8c44f0fd0119020da5996ece42c2ce7ce",
+    "archiveSha256": "2955b7f97779864054b92563c64924a72c835b81d7806eb82fa71104e5605d9e",
+    "branch": "codex/menu-publishing-20261113"
+  },
+  "deployment": {
+    "hostinger": "Completed / Current",
+    "filename": "puna-menu-publishing-d272b42-20261113.zip",
+    "productionDeployed": false
+  },
+  "products": [
+    {
+      "id": "chimichurri",
+      "publication": "staging",
+      "version": 3,
+      "priceCents": 300,
+      "squareVariation": "3MLJDO7662UGTUMSSY3KURIJ",
+      "ingredientsConfirmed": false
+    },
+    {
+      "id": "sanpellegrino-aranciata",
+      "publication": "staging",
+      "version": 3,
+      "priceCents": 350,
+      "squareVariation": "LO65SJDKRQMPEJTP3E4DCTFW",
+      "ingredientsConfirmed": false
+    },
+    {
+      "id": "sanpellegrino-aranciata-rossa",
+      "publication": "staging",
+      "version": 3,
+      "priceCents": 350,
+      "squareVariation": "F7CSWPLATCAOVXNZY2RDVTO7",
+      "ingredientsConfirmed": false
+    },
+    {
+      "id": "sanpellegrino-limonata",
+      "publication": "staging",
+      "version": 4,
+      "priceCents": 350,
+      "squareVariation": "E5UE4AZ4UKFJ6SIXQ5IBRT56",
+      "ingredientsConfirmed": false
+    },
+    {
+      "id": "sanpellegrino-pompelmo",
+      "publication": "staging",
+      "version": 5,
+      "priceCents": 350,
+      "squareVariation": "3DNTYOKB46FZVS26Q75AA5B2",
+      "ingredientsConfirmed": false
+    }
+  ],
+  "preservation": {
+    "lots": 13,
+    "lotRecordsUnchanged": true,
+    "kitchenStateUnchanged": true,
+    "stockAuditReadbackUnchanged": true,
+    "allocationsUnchanged": true,
+    "originalEmpanadasUnchanged": true,
+    "previousProductHistoryPreserved": true,
+    "newProductHistorySnapshots": 14
+  },
+  "validation": {
+    "ci": "https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/43405748186",
+    "integrationChecks": 232,
+    "domainChecks": 92,
+    "boundaryTests": 25,
+    "typecheck": true,
+    "productionBuild": true,
+    "imageProcessing": true,
+    "heroStoryComparison": true,
+    "hostedPublishUnpublishRepublish": true,
+    "hostedBagOptionalAdditions": true,
+    "previewBagCleared": true,
+    "viewportWidths": [
+      390,
+      800,
+      1440
+    ],
+    "horizontalOverflow": false,
+    "physicalLenovo": "Not performed: ADB local socket denied"
+  },
+  "gates": {
+    "testOrdersEnabled": false,
+    "orderingLocal": false,
+    "checkoutMode": "disabled",
+    "automaticSquareDeductions": false,
+    "livePayments": false
+  },
+  "localDocs": "/Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/docs/menu-publishing/",
+  "evidence": "/Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/test-artifacts/menu-publishing/",
+  "driveDocuments": [
+    {
+      "file": "RELEASE-REPORT.md",
+      "url": "https://drive.google.com/file/d/1XVy9mLY01Lf0C8SDBzUqb8Cxmx-HjjiV/view?usp=drivesdk",
+      "folder": "11j4AaRxTnL0okaAGmuhYEj6v3wfoMv7F",
+      "exactTextReadback": true
+    },
+    {
+      "file": "IMPLEMENTATION.md",
+      "url": "https://drive.google.com/file/d/1qdPvhlatL-RPcgl2rI0G2gYyWPBg4Hm3/view?usp=drivesdk",
+      "folder": "11j4AaRxTnL0okaAGmuhYEj6v3wfoMv7F",
+      "exactTextReadback": true
+    },
+    {
+      "file": "TABLET-ACCEPTANCE.md",
+      "url": "https://drive.google.com/file/d/1fjaHP8MNifvrDLgyOLOJb9egjLbhb5vL/view?usp=drivesdk",
+      "folder": "1jsxbcrbHu5z_v3VcLVL-zVHsKtHMPUYP",
+      "exactTextReadback": true
+    }
+  ],
+  "driveArchive": {
+    "url": "https://drive.google.com/file/d/1BIYbU8_tTw88Q2b1ZsFkP7qQp3D9ifIh/view?usp=drivesdk",
+    "bytes": 5783722,
+    "sha256": "b2c9119ce40663a9625a2f2a5a8ffccf8cfa77111373221660c917d0ca164341",
+    "remoteBytesMatched": true,
+    "entries": 16,
+    "localEntryReadback": true,
+    "excludesPrivateSnapshotsAndSecrets": true
+  },
+  "projectReference": {
+    "url": "https://docs.google.com/document/d/1B3NroHjK1YnBHgYWu6CBe5900X1xPoKfEqN78XBC9z8",
+    "revision": "AHj4eMTMSaiA_t7rAV2adwLeAaXIAhCbltu0CIiwIa1KSi6C9zINaf4KJdNRbelCj7DnS3DalnohcV8kTSS3UDeKdRPHS5I0gFBUxJ5sals",
+    "exactAppend": true
+  }
+}
