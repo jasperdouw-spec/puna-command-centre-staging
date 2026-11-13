@@ -438,7 +438,7 @@ try{
  await check('public design, artwork and navigation render on desktop and mobile with synthetic catalogue',async()=>{
   // Synthetic records only; render five customer menu items and keep three frozen products internal.
   await db.execute("UPDATE products SET price_cents=800 WHERE id='synthetic-product'");
-  for(let i=1;i<=7;i++)await db.execute('INSERT INTO products(id,name,description,price_cents,kind,available) VALUES(?,?,?,?,?,?)',['fixture-'+i,'Synthetic menu '+i,'Disposable test description. No customer data.',i<=4?800:2500,i<=4?'fresh':'frozen',i<=4?1:0]);
+  for(let i=1;i<=7;i++)await db.execute('INSERT INTO products(id,name,description,price_cents,kind,available) VALUES(?,?,?,?,?,?)',['fixture-'+i,'Synthetic menu '+i,i===1?'Disposable long filling description with roasted vegetables, slowly cooked onions, herbs, potatoes, peppers and a detailed ingredient note. This longer synthetic text checks that mobile prices and pickup controls never overlap ingredients.':'Disposable test description. No customer data.',i<=4?800:2500,i<=4?'fresh':'frozen',i<=4?1:0]);
   const publicContext=await browser.newContext({ignoreHTTPSErrors:true});await publicContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const pp=await publicContext.newPage();
   for(const [device,width,height] of [['desktop',1440,1000],['laptop',1280,900],['tablet',768,1024],['mobile',390,844],['narrow',320,740]]){
    await pp.setViewportSize({width,height});await pp.goto(origin+'/');await pp.getByText('Synthetic test hours only',{exact:true}).waitFor();
