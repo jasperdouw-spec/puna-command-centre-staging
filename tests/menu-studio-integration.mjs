@@ -77,7 +77,8 @@ export async function runMenuStudioChecks({db,request,check,cookie,staffCookie,b
   assert.equal(await flavours.locator('option').count(),4);await flavours.selectOption({label:'Pompelmo · $3.50 · Count not confirmed'});
   const drinkCard=page.locator('article').filter({has:flavours});assert.match(await drinkCard.innerText(),/Stock count not confirmed/);assert.match(await drinkCard.innerText(),/Not Ready/);
   assert.equal(await drinkCard.getByRole('button',{name:'Add Pompelmo · synthetic to bag',exact:true}).isDisabled(),true);
-  await flavours.selectOption(drink);assert.match(await drinkCard.innerText(),/Ready Now/);assert.match(await drinkCard.innerText(),/8 ready for pickup/);
+  // The earlier paid mixed-order fixture protects one of the eight ready drinks.
+  await flavours.selectOption(drink);assert.match(await drinkCard.innerText(),/Ready Now/);assert.match(await drinkCard.innerText(),/7 ready for pickup/);
   await page.getByRole('button',{name:'Add Ham & Cheese to bag',exact:true}).tap();await page.getByRole('button',{name:'Open bag, 1 items',exact:true}).tap();const bag=page.getByRole('dialog');await bag.getByRole('heading',{name:'Complete your order',exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'Open bag, 1 items',exact:true}).count(),1);assert.equal(await bag.getByLabel('Add-on drink flavour').locator('option').count(),1);
   await bag.getByLabel('Add-on drinks quantity').fill('2');await bag.getByRole('button',{name:'Add drink · $7.00',exact:true}).tap();assert.equal(await bag.getByLabel('Add-on drink flavour').count(),0);assert.equal(await page.getByRole('button',{name:'Open bag, 3 items',exact:true}).count(),1);
