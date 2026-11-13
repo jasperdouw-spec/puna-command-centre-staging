@@ -147,6 +147,7 @@ export async function kitchenAction(actor:Actor,p:KitchenInput){
     else fail('No unreserved display units to remove.');
    }else if(p.action==='start'||p.action==='count'){
     if(p.online>p.quantity)fail('Online allocation cannot exceed the counted batch.',400);
+    if(p.action==='count'&&p.quantity===0&&s.lots.some(l=>l.productId===p.productId&&l.online_ready+l.truck_ready>0))fail('Use Batch tools to correct existing food before confirming an empty display.');
     if(!s.products.some(x=>x.id===p.productId))fail('Choose a fresh catalogue product.',400);
     const id=randomUUID(),baking=p.action==='start';if(baking&&!s.products.find(x=>x.id===p.productId)?.ovenEligible)fail('This product is ready-stock only.');
     await c.execute('INSERT INTO kitchen_lots(id,product_id,started_units,started_at,estimated_ready_at,online_ready,truck_ready,online_baking,truck_baking,note,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)',[id,p.productId,p.quantity,sqlDate(now),sqlDate(now+(baking?p.minutes*60000:0)),baking?0:p.online,baking?0:p.quantity-p.online,baking?p.online:0,baking?p.quantity-p.online:0,baking?'Counted into the oven':p.reason,actor.id]);result={id};
