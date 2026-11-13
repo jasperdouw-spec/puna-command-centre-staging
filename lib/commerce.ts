@@ -1,4 +1,6 @@
 import 'server-only';
+import {revalidateCatalogPrices} from './square-catalog';
+import {catalogIssues,disposableCatalog} from './square-price-gate';
 import {menuActiveSql} from './menu-model';
 import {createHash,randomUUID} from 'node:crypto';
 import type {PoolConnection} from 'mysql2/promise';
@@ -34,6 +36,7 @@ export async function saleProducts(c:PoolConnection,ids:string[],lock=false){
  LEFT JOIN inventory_balances b ON b.product_id=p.id AND b.location='truck'
  AND b.stage=CASE m.category WHEN 'empanada' THEN 'frozen' WHEN 'sauce' THEN 'portion' ELSE 'packaged' END
  WHERE p.id IN (?) ORDER BY p.id${lock?' FOR UPDATE':''}`,[ids]);
+ if(!disposableCatalog()){const issues=await catalogIssues(c,ids,Date.now());for(const r of rows)if(issues.get(r.id))r.price_confirmed=0;}
  return rows.map(r=>({...r,price_cents:Number(r.price_cents),version:Number(r.version),tax_rules:r.tax_rules===null?null:JSON.parse(r.tax_rules),available:!!r.available,price_confirmed:!!r.price_confirmed,ingredients_confirmed:!!r.ingredients_confirmed,known:!!r.known})) as SaleProduct[];
 }
 export async function release(c:PoolConnection,order:RowDataPacket,actor:number|null,reason:string){
@@ -61,6 +64,7 @@ export async function rateLimit(c:PoolConnection,key:string,now:number,limit=15)
  return Number(rows[0].attempts)<=limit;
 }
 export async function checkoutQuote(cart:CartInput){
+ if(!disposableCatalog())await revalidateCatalogPrices(cart.map(i=>i.id));
  return transaction(async(c,now)=>{await expireDefiniteHolds(c,now);const config=await configuration(c);const products=await saleProducts(c,cart.map(i=>i.id));
   for(const p of products)p.physical_units=Math.max(0,p.physical_units-config.value.safetyStock);
   const quote=quoteCart(cart,products,config.value.maxItems);
@@ -70,6 +74,7 @@ export async function checkoutQuote(cart:CartInput){
 }
 export type HoldInput={checkoutKey:string;accessKey:string;batchId:string;cart:CartInput;expectedTotal:number;name:string;email:string};
 export async function reserve(input:HoldInput){
+ if(!disposableCatalog())await revalidateCatalogPrices(input.cart.map(i=>i.id));
  const bodyHash=digest(JSON.stringify({batchId:input.batchId,cart:[...input.cart].sort((a,b)=>a.id.localeCompare(b.id)),name:input.name,email:input.email.toLowerCase(),receipt:digest(input.accessKey),expectedTotal:input.expectedTotal}));
  return transaction(async(c,now)=>{
   await expireDefiniteHolds(c,now);

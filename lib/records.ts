@@ -1,5 +1,7 @@
 import {boundedArray} from './bounded-array';
 import 'server-only';
+import {requireCatalogProduct,disposableCatalog} from './square-price-gate';
+import {catalogHash} from './square-catalog-model';
 import {priceLocked,menuHistory} from './menu';
 import {z} from 'zod';
 import {randomUUID} from 'node:crypto';
@@ -30,7 +32,14 @@ export async function importProducts(actor:number,rows:z.infer<typeof sourceProd
 }
 export const commerceFields=z.object({id:z.string().max(64),version:z.number().int().positive(),publication:z.enum(['draft','staging']),priceConfirmed:z.boolean(),ingredientsConfirmed:z.boolean(),taxRules:taxRules.nullable(),depositCents:z.number().int().min(0).max(10000).nullable(),packingSeconds:z.number().int().min(0).max(3600).nullable()}).strict();
 export async function saveCommerce(actor:number,p:z.infer<typeof commerceFields>){
- return transaction(async c=>{const [guard]=await c.execute<RowDataPacket[]>('SELECT square_candidate FROM product_menu WHERE product_id=?',[p.id]);if(p.publication==='staging'&&guard[0]?.square_candidate)throw new CommerceError('SQUARE_CATALOGUE_RECONCILIATION_REQUIRED');const [r]=await c.execute('UPDATE commerce_products SET publication=?,price_confirmed=?,ingredients_confirmed=?,tax_rules=?,deposit_cents=?,packing_seconds=?,version=version+1 WHERE product_id=? AND version=?',[p.publication,p.priceConfirmed,p.ingredientsConfirmed,p.taxRules===null?null:JSON.stringify(p.taxRules),p.depositCents,p.packingSeconds,p.id,p.version]);if(!(r as {affectedRows:number}).affectedRows)throw new CommerceError('PRODUCT_CHANGED');await audit(c,actor,'commerce:configure','product',p.id);return {version:p.version+1};});
+ return transaction(async(c,now)=>{
+ const [links]=await c.execute<RowDataPacket[]>('SELECT * FROM square_catalog_links WHERE product_id=?',[p.id]);
+ const [current]=await c.execute<RowDataPacket[]>('SELECT * FROM commerce_products WHERE product_id=?',[p.id]);const prior=current[0];
+ if(links.length){
+  if(!prior||!!prior.price_confirmed!==p.priceConfirmed||catalogHash(prior.tax_rules?JSON.parse(prior.tax_rules):null)!==catalogHash(p.taxRules)||prior.deposit_cents!==p.depositCents)throw new CommerceError('Square prices, taxes and deposits are managed in Square pricing & sync.');
+ }else{const [guard]=await c.execute<RowDataPacket[]>('SELECT square_candidate FROM product_menu WHERE product_id=?',[p.id]);if(p.publication==='staging'&&guard[0]?.square_candidate)throw new CommerceError('SQUARE_CATALOGUE_RECONCILIATION_REQUIRED');}
+ if(p.publication==='staging'&&!disposableCatalog())await requireCatalogProduct(c,p.id,now);
+ const [r]=await c.execute('UPDATE commerce_products SET publication=?,price_confirmed=?,ingredients_confirmed=?,tax_rules=?,deposit_cents=?,packing_seconds=?,version=version+1 WHERE product_id=? AND version=?',[p.publication,p.priceConfirmed,p.ingredientsConfirmed,p.taxRules===null?null:JSON.stringify(p.taxRules),p.depositCents,p.packingSeconds,p.id,p.version]);if(!(r as {affectedRows:number}).affectedRows)throw new CommerceError('PRODUCT_CHANGED');await audit(c,actor,'commerce:configure','product',p.id);return {version:p.version+1};});
 }
 export const recipeInput=z.object({id:z.string().max(64),baseVersion:z.number().int().min(0),name:z.string().min(1).max(120),yieldUnits:z.number().int().positive().nullable(),ingredients:boundedArray(z.object({id:z.string().max(64),quantity:z.number().positive(),unit:z.enum(['g','ml','each']),sourceValue:z.string().max(500)}).strict(),100,0),labourMinutes:z.number().nonnegative().nullable(),labourRateCents:z.number().int().nonnegative().nullable(),packagingCents:z.number().int().nonnegative().nullable(),sourceReference:z.string().url().max(500),sourceHash:z.string().regex(/^[a-f0-9]{64}$/),verified:z.boolean()}).strict();
 export async function saveRecipe(actor:number,p:z.infer<typeof recipeInput>){

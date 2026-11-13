@@ -1,4 +1,5 @@
 import 'server-only';
+import {catalogIssues,requireCatalogProduct} from './square-price-gate';
 import {randomUUID} from 'node:crypto';
 import type {PoolConnection,RowDataPacket} from 'mysql2/promise';
 import {database} from './db';
@@ -16,7 +17,7 @@ export async function priceLocked(c:PoolConnection,id:string){
  return false;
 }
 export async function menuHistory(c:PoolConnection,id:string,actor:number|null,action:string,now:number){const [r]=await c.execute<RowDataPacket[]>(select+' WHERE p.id=?',[id]);if(r[0])await c.execute('INSERT INTO product_menu_history(product_id,actor_id,action,snapshot,created_at) VALUES(?,?,?,?,?)',[id,actor,action,JSON.stringify({details:draftFromRow(r[0]),publication:r[0].publication||'draft',available:!!r[0].available,version:Number(r[0].version),draft:r[0].draft?JSON.parse(r[0].draft):null}),sqlDate(now)]);}
-export async function ownerMenu(){const [rows]=await database().query<RowDataPacket[]>(select+' ORDER BY p.kind,p.name');const [history]=await database().query<RowDataPacket[]>('SELECT id,product_id,action,snapshot,created_at FROM product_menu_history ORDER BY id DESC LIMIT 400');return {products:rows.map(p=>({id:p.id,version:Number(p.version),kind:p.kind,publication:p.publication||'draft',archived:!!p.archived,priceConfirmed:!!p.price_confirmed,ingredientsConfirmed:!!p.ingredients_confirmed,sourceReference:p.source_reference,details:draftFromRow(p),draft:p.draft?JSON.parse(p.draft):null})),history:history.map(h=>({...h,snapshot:JSON.parse(h.snapshot),created_at:iso(h.created_at)}))};}
+export async function ownerMenu(){const [rows]=await database().query<RowDataPacket[]>(select+' ORDER BY p.kind,p.name');const [history]=await database().query<RowDataPacket[]>('SELECT id,product_id,action,snapshot,created_at FROM product_menu_history ORDER BY id DESC LIMIT 400');const [links]=await database().query<RowDataPacket[]>('SELECT * FROM square_catalog_links');const issues=await transaction((c,now)=>catalogIssues(c,rows.map(p=>p.id),now));return {products:rows.map(p=>({id:p.id,version:Number(p.version),kind:p.kind,publication:p.publication||'draft',archived:!!p.archived,priceConfirmed:!!p.price_confirmed,ingredientsConfirmed:!!p.ingredients_confirmed,sourceReference:p.source_reference,pricing:(()=>{const l=links.find(l=>l.product_id===p.id);return l?{variationId:l.variation_id,priceCents:l.verified_price_cents,status:l.status,verifiedAt:iso(l.verified_at),issue:issues.get(p.id)}:null;})(),details:draftFromRow(p),draft:p.draft?JSON.parse(p.draft):null})),history:history.map(h=>({...h,snapshot:JSON.parse(h.snapshot),created_at:iso(h.created_at)}))};}
 export type MenuCommand={action:'create'|'save'|'publish'|'unpublish'|'archive'|'restore'|'clone';key:string;id?:string;version?:number;draft?:MenuDraft;revision?:number;confirmed?:boolean};
 export async function changeMenu(actor:number,p:MenuCommand){return transaction(async(c,now)=>{
  const hash=digest(JSON.stringify(p));const [old]=await c.execute<RowDataPacket[]>('SELECT * FROM menu_operations WHERE operation_key=?',[p.key]);if(old[0]){if(Number(old[0].actor_id)!==actor||old[0].request_hash!==hash)throw new CommerceError('ACTION_CONFLICT');return JSON.parse(old[0].result);}
@@ -31,14 +32,15 @@ export async function changeMenu(actor:number,p:MenuCommand){return transaction(
   const [r]=await c.execute<RowDataPacket[]>(select+' WHERE p.id=? FOR UPDATE',[id]);const prior=r[0];if(!prior)throw new CommerceError('PRODUCT_NOT_FOUND',404);if(Number(prior.version)!==p.version)throw new CommerceError('Product changed. Reload before saving.');
   await menuHistory(c,id!,actor,'before '+p.action,now);
   await c.execute('INSERT IGNORE INTO product_menu(product_id,oven_eligible) VALUES(?,?)',[id,prior.category==='empanada']);
-  if(p.action==='restore'){const [h]=await c.execute<RowDataPacket[]>('SELECT snapshot FROM product_menu_history WHERE id=? AND product_id=?',[p.revision||0,id]);if(!h[0])throw new CommerceError('HISTORY_NOT_FOUND',404);draft=JSON.parse(h[0].snapshot).draft||JSON.parse(h[0].snapshot).details;}
+  if(p.action==='restore'){const [h]=await c.execute<RowDataPacket[]>('SELECT snapshot FROM product_menu_history WHERE id=? AND product_id=?',[p.revision||0,id]);if(!h[0])throw new CommerceError('HISTORY_NOT_FOUND',404);draft=JSON.parse(h[0].snapshot).draft||JSON.parse(h[0].snapshot).details;if(draft&&await priceLocked(c,id)){draft.priceCents=Number(prior.price_cents);draft.squareCandidate=prior.square_candidate||'';}}
   if(['save','publish','restore'].includes(p.action)){
    draft=menuDraftSchema.parse(draft||JSON.parse(prior.draft||'null'));
    if(prior.square_candidate&&draft.squareCandidate!==prior.square_candidate)throw new CommerceError('Square reference requires provider reconciliation before replacement.');
-   if(draft.priceCents!==Number(prior.price_cents)&&await priceLocked(c,id!))throw new CommerceError('Square-linked price is locked until the provider price is verified.');
+   if(draft.priceCents!==Number(prior.price_cents)&&await priceLocked(c,id!))throw new CommerceError('Square controls this price. Update it in Square, then synchronize here.');
    if(draft.category!==(prior.category||'empanada')){const [used]=await c.execute<RowDataPacket[]>('SELECT (SELECT COUNT(*) FROM kitchen_lots WHERE product_id=?)+(SELECT COUNT(*) FROM pickup_order_lines WHERE product_id=?) n',[id,id]);if(Number(used[0].n))throw new CommerceError('Products with stock or orders keep their category. Create a new product.');}
    await c.execute('UPDATE product_menu SET draft=? WHERE product_id=?',[JSON.stringify(draft),id]);
    if(p.action==='publish'){
+    await requireCatalogProduct(c,id,now);
     if(!p.confirmed||draft.priceCents===null||!draft.description||!draft.ingredients||draft.photoId&&!draft.photoAlt)throw new CommerceError('Confirm the price, description, ingredients and photo description before publishing.');
     if(draft.squareCandidate&&(draft.squareCandidate!==prior.square_candidate||draft.priceCents!==Number(prior.price_cents)))throw new CommerceError('Square mapping is a draft. Provider verification is required before publishing it.');
     if(draft.weekly&&(!draft.startsAt||draft.endsAt&&Date.parse(draft.endsAt)<=now))throw new CommerceError('Choose a current or future schedule for this special.');

@@ -1,3 +1,4 @@
+import {runCatalogChecks} from './square-catalog-integration.mjs';
 import {runMenuStudioChecks} from './menu-studio-integration.mjs';
 import {checkCharts} from './chart-browser.mjs';
 import {captureApprovedSection} from './approved-visual.mjs';
@@ -58,7 +59,8 @@ try{
  execFileSync(process.execPath,['scripts/migrate.mjs','--migration=007_customer_notes','--apply'],{stdio:'pipe'});
  execFileSync(process.execPath,['scripts/migrate.mjs','--migration=008_reporting','--apply'],{stdio:'pipe'});
  execFileSync(process.execPath,['scripts/migrate.mjs','--migration=011_menu_studio','--apply'],{stdio:'pipe'});
- await check('additive migration reruns preserve the schema',async()=>{for(const migration of ['006_commerce','007_customer_notes','008_reporting','011_menu_studio']){const out=execFileSync(process.execPath,['scripts/migrate.mjs','--migration='+migration,'--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)}});
+ execFileSync(process.execPath,['scripts/migrate.mjs','--migration=012_square_catalog','--apply'],{stdio:'pipe'});
+ await check('additive migration reruns preserve the schema',async()=>{for(const migration of ['006_commerce','007_customer_notes','008_reporting','011_menu_studio','012_square_catalog']){const out=execFileSync(process.execPath,['scripts/migrate.mjs','--migration='+migration,'--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)}});
  await check('migration ledger cannot hide a missing expected table',async()=>{
   const [before]=await db.query("SELECT checksum FROM schema_migrations WHERE id='007_customer_notes'");
   await db.query('RENAME TABLE customer_notes TO synthetic_migration_customer_notes');
@@ -571,6 +573,7 @@ try{
   const restart=async(enabled)=>{app.kill('SIGTERM');await new Promise(r=>app.once('exit',r));app=spawn(process.execPath,appArgs,{env:{...process.env,...appAddress,PUNA_CHECKOUT_MODE:'disabled',PUNA_LIVE_KITCHEN_ENABLED:'true',PUNA_SQUARE_POS_ENABLED:String(enabled),PUNA_SQUARE_POS_WEBHOOK_URL:origin+'/api/square/pos-webhook',PUNA_SQUARE_POS_WEBHOOK_KEY:'synthetic-pos-key',PUNA_SQUARE_POS_LOCATION_ID:'synthetic-location',PUNA_SQUARE_POS_CUTOVER_AT:'2026-11-01T00:00:00Z',BOOTSTRAP_TOKEN:'',STAGING_TEST_ORDERS_ENABLED:'false',NODE_ENV:'production'},stdio:['ignore','pipe','pipe']});app.stdout.on('data',d=>process.stdout.write(d));app.stderr.on('data',d=>process.stderr.write(d));let ready=false;for(let n=0;n<60;n++){try{if((await request('/api/auth')).status===200){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}assert.ok(ready);};
   await runPosChecks({db,request,check,cookie,restart});
  }
+ await runCatalogChecks({db,request,check,cookie,staffCookie,browser,origin,password,ownerEmail:owner.email});
  await check('isolated synthetic restore preserves counts, definitions, indexes and foreign keys',async()=>{console.log('Synthetic recovery evidence '+JSON.stringify(await verifySyntheticRecovery()))});
  await check('approved hero and Story screenshots remain unchanged',async()=>assert.deepEqual(visualMismatches,[]));
  console.log('RESULT '+passed+' integration checks passed; synthetic data only; no deployment; private hosted-data restore was not exercised.');

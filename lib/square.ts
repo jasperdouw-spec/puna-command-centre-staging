@@ -1,4 +1,5 @@
 import 'server-only';
+import {disposableCatalog} from './square-price-gate';
 import {createHmac,timingSafeEqual,randomUUID} from 'node:crypto';
 import type {RowDataPacket} from 'mysql2';
 import {transaction,orderAccess,commerceEnabled,audit,sqlDate,release,digest} from './commerce';
@@ -45,6 +46,7 @@ export async function applyPayment(id:string,p:Payment){
  });
 }
 export async function startPayment(id:string,key:string,sourceToken:string){
+ if(!disposableCatalog())throw new CommerceError('SANDBOX_CATALOG_ACCEPTANCE_REQUIRED',503);
  if(!commerceEnabled())throw new CommerceError('SANDBOX_NOT_CONFIGURED',503);
  const data=await transaction(async(c,now)=>{
   const o=await orderAccess(c,id,key,true);

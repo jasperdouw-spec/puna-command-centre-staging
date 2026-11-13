@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 assertSyntheticContext();
 import {generateKeyPairSync,sign} from 'node:crypto';
 import {order,money} from './sales-fixtures.mjs';
-Object.assign(process.env,{PUNA_SQUARE_REPORTING_ENABLED:'true',PUNA_REPORTING_SCHEDULE_ENABLED:'true',PUNA_REPORTING_JOB_TOKEN:'synthetic-reporting-job-token-32-characters',SQUARE_REPORTING_APPLICATION_ID:'synthetic-reporting-app',SQUARE_REPORTING_APPLICATION_SECRET:'synthetic-secret',SQUARE_REPORTING_MERCHANT_ID:'synthetic-merchant',SQUARE_REPORTING_LOCATION_IDS:'synthetic-location',PUNA_REPORTING_ENCRYPTION_KEY:'a'.repeat(64),PUNA_REPORTING_ORIGIN:'https://localhost:3443',SQUARE_REPORTING_START_AT:'2025-06-01T00:00:00Z'});
+Object.assign(process.env,{PUNA_SQUARE_REPORTING_ENABLED:'true',PUNA_REPORTING_SCHEDULE_ENABLED:'true',PUNA_REPORTING_JOB_TOKEN:'synthetic-reporting-job-token-32-characters',SQUARE_REPORTING_APPLICATION_ID:'synthetic-reporting-app',SQUARE_REPORTING_APPLICATION_SECRET:'synthetic-secret',SQUARE_REPORTING_MERCHANT_ID:'synthetic-merchant',SQUARE_REPORTING_LOCATION_IDS:'synthetic-location',PUNA_REPORTING_ENCRYPTION_KEY:'a'.repeat(64),PUNA_REPORTING_ORIGIN:'https://localhost:3443',SQUARE_REPORTING_START_AT:'2025-06-01T00:00:00Z',SQUARE_CATALOG_WEBHOOK_SIGNATURE_KEY:'synthetic-catalog-key',SQUARE_CATALOG_WEBHOOK_URL:'https://localhost:3443/api/square/catalog-webhook'});
 const identityKeys=generateKeyPairSync('rsa',{modulusLength:2048}),jwk={...identityKeys.publicKey.export({format:'jwk'}),kid:'synthetic-ci-key',alg:'RS256',use:'sig'};
 const encode=v=>Buffer.from(JSON.stringify(v)).toString('base64url');
 
@@ -15,11 +15,19 @@ globalThis.fetch=async function(input,init){
  const url=String(input instanceof Request?input.url:input);
  if(url.startsWith('https://connect.squareup.com/')){
   const path=new URL(url).pathname,body=init?.body?JSON.parse(init.body):{};
+  let catalog={};try{catalog=JSON.parse(readFileSync(new URL('../test-artifacts/catalog-provider.json',import.meta.url),'utf8'));}catch{}
   if(init?.headers?.Authorization==='Bearer synthetic-revoked')return reply({},401);
   if(path==='/oauth2/token')return reply({access_token:'synthetic-reporting-token',refresh_token:'synthetic-reporting-refresh',expires_at:'2030-01-01T00:00:00Z',merchant_id:'synthetic-merchant'});
-  if(path==='/oauth2/token/status')return reply({merchant_id:'synthetic-merchant',client_id:'synthetic-reporting-app',scopes:['MERCHANT_PROFILE_READ','ORDERS_READ','PAYMENTS_READ','REPORTING_READ']});
+  if(path==='/oauth2/token/status')return reply({merchant_id:'synthetic-merchant',client_id:'synthetic-reporting-app',scopes:['MERCHANT_PROFILE_READ','ORDERS_READ','PAYMENTS_READ','REPORTING_READ',...(catalog.scope?['ITEMS_READ']:[])]});
   if(path==='/v2/merchants/synthetic-merchant')return reply({merchant:{id:'synthetic-merchant',country:'CA',currency:'CAD',business_name:'Synthetic merchant'}});
-  if(path==='/v2/locations')return reply({locations:[{id:'synthetic-location',name:'Synthetic location',status:'ACTIVE',country:'CA',currency:'CAD',timezone:'America/Vancouver'}]});
+  if(path==='/v2/locations')return reply({locations:[{id:'synthetic-location',name:'Synthetic location',address:{locality:catalog.city||'Ucluelet',country:'CA'},status:'ACTIVE',country:'CA',currency:'CAD',timezone:'America/Vancouver'}]});
+  if(path==='/v2/catalog/search'){
+   assert.equal(init.method,'POST');assert.equal(body.include_deleted_objects,true);assert.equal(body.limit,100);
+   if(catalog.fail)return reply({errors:[{code:'INTERNAL_SERVER_ERROR'}]},500);
+   if(catalog.failPage&&body.cursor)return reply({errors:[{code:'INTERNAL_SERVER_ERROR'}]},500);
+   const page=catalog.pages?.[body.cursor?1:0]||catalog.objects||[];
+   return reply({objects:page,latest_time:catalog.watermark||'2026-11-13T08:00:00Z',...(catalog.repeatCursor||catalog.pages&&!body.cursor?{cursor:'next'}:{})});
+  }
   if(path==='/reporting/v1/meta')return reply({cubes:[{name:'Sales',type:'view',measures:['net_sales','order_count','top_line_product_sales','discounts_amount','itemized_returns','refunds_by_amount_amount','tips_amount','sales_tax_amount','total_collected_amount'].map(n=>({name:'Sales.'+n,type:'number'})),dimensions:[{name:'Sales.local_reporting_timestamp',type:'time'},{name:'Sales.location_id',type:'string'}],segments:[]}]});
   if(path==='/reporting/v1/load'){assert.equal(init.method,'POST');assert.equal(body.query.timezone,undefined);return reply({data:[{'Sales.local_reporting_timestamp.month':'2025-06-01T00:00:00.000','Sales.location_id':'synthetic-location',...Object.fromEntries(body.query.measures.map(m=>[m,m.endsWith('order_count')?1:m.endsWith('net_sales')?7:0]))}]});}
   if(/^\/v2\/orders\/pos-[A-Za-z0-9_-]+$/.test(path)){assert.equal(init.method,'GET');return reply({order:JSON.parse(readFileSync(new URL('../test-artifacts/pos-provider.json',import.meta.url),'utf8'))[path.split('/').pop()]});}
