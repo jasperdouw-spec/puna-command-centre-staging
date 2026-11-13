@@ -1,0 +1,40 @@
+{
+  "run": 43367213003,
+  "sourceTree": "d5b93fd5d2f267f05ccf87007814f665641cc4c5",
+  "approvedSections": [
+    {
+      "size": "desktop",
+      "section": "hero",
+      "pngBytesIdentical": true,
+      "comparisonPassed": true
+    },
+    {
+      "size": "desktop",
+      "section": "story",
+      "pngBytesIdentical": false,
+      "comparisonPassed": true
+    },
+    {
+      "size": "mobile",
+      "section": "hero",
+      "pngBytesIdentical": true,
+      "comparisonPassed": true
+    },
+    {
+      "size": "mobile",
+      "section": "story",
+      "pngBytesIdentical": false,
+      "comparisonPassed": true
+    }
+  ],
+  "descriptionOverlap": {
+    "desktop": "passed",
+    "mobile": "passed",
+    "fixture": "long synthetic filling"
+  },
+  "horizontalOverflow": {
+    "desktop": false,
+    "mobile": false,
+    "tablet": false
+  }
+}

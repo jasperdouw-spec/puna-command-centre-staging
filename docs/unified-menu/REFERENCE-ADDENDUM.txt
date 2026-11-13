@@ -1,0 +1,22 @@
+
+
+UNIFIED LIVE MENU / OVEN PRE-ORDERS / PERSISTENT KITCHEN — 12 November 2026 Pacific
+
+Staging deployed and verified at 21:48 Pacific. Hostinger build 01a1d33a-402f-71f8-bc57-2f5434056f4c is Completed/Current. Source archive puna-unified-4a7f143-20261112.zip, SHA-256 746e2bb97fddf67b2af19e9eeddcb4af7f98350dfbdb64abc4f4adf7a3eab836. Local application commit 4a7f143ba9e373b3dc2b62860c0873fbb76c2693; remote 4f46c5d37cb9b45e851f0cd932d9a0c382dd6607; identical tree d5b93fd5d2f267f05ccf87007814f665641cc4c5. Draft PR: https://github.com/jasperdouw-spec/puna-command-centre-staging/pull/4 .
+
+One original branded menu replaces the duplicate cabinet. Batch-specific oven and ready reservations, single capacity-aware pickup window, partial readiness, delays, protected commitments and fulfillment are implemented and tested with disposable providers. Business session, stock confidence and device connectivity are separate. The browser's 90-second heartbeat no longer closes a trusted business session; default stock review is eight hours with configurable closing and policy. Real checkout, live payments and automatic POS deductions remain disabled.
+
+Migration 010 added service/schedule metadata only. State version 32, seven lots, 15 ready units, 11 baking units and 31 kitchen events were retained; existing table checksums match before and after deployment. Those entries are unreviewed. Actual staff must check stock, confirm review, choose closing time and Open. No physical-stock attestation or invented hosted stock was made.
+
+Final CI: 193 integration, 76 domain and 25 validation/provider-boundary checks passed, plus typecheck and production build. https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/43367213003 . Desktop/mobile/tablet hosted checks passed, including long ingredient text and distinct statuses. Approved hero/Story comparisons passed. Physical Lenovo acceptance remains outstanding because USB/ADB access was denied; touch simulation is not physical acceptance. Square catalogue read lacks ITEMS_READ and provider location/catalogue mapping needs verification. Sandbox payment/webhook/refund/reconciliation and notification acceptance remain launch gates. The inherited mitigated Zod advisory remains open.
+
+Release report: https://drive.google.com/file/d/1TDM2m4LfjvYHwrubSK4rUxz8JCSwNOya/view
+Architecture: https://drive.google.com/file/d/1p__72Vqp-_EtARX50ZlX5Yy0Xd80mvvX/view
+Deployment/rollback: https://drive.google.com/file/d/151QJ3XvG8y5Vo0FyU5RbRrqNs3P6JRMS/view
+Tablet acceptance: https://drive.google.com/file/d/1so8dZ-4Kv-WT8slIioE1QDpZ42QmF5eY/view
+Evidence archive: https://drive.google.com/file/d/1uUHedGVODCoiJQIoqFjfr6OVFfxMVJjO/view
+Manifest: https://drive.google.com/file/d/19j80Dmme2ZS7HP4C5fra-hWebxJNvuB9/view
+Backup receipt: https://drive.google.com/file/d/1T3fbnt3qhSC7BZ6UyznlZgX027qV63wm/view
+
+Pacific Core: /Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/docs/unified-menu ; evidence test-artifacts/unified-menu/backups/puna-unified-menu-20261112-evidence.zip. Archive 7,728,311 bytes, SHA-256 21b5d4fd98f1a836b14f88899dd241c5a36d2d0fbd88e7e5d584fe70340f9471. All 24 local evidence entries and 270 source entries verified. Drive documents/manifest/receipt read back exactly; remote ZIP size/folder verified but remote ZIP hash not independently verified. Fresh selected kitchen SQL backup verified; full-host native backup remains 11 November 23:37 under manual cooldown. No private hosted restore test. Previous checkpoints preserved. No secrets in ordinary documentation.
+

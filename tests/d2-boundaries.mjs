@@ -39,12 +39,12 @@ test('private config must be owner-only non-symlink and outside repository',asyn
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 
-test('callback listener boundaries and restart persistence',async t=>{
+test('callback listener boundaries and restart persistence',{timeout:60000},async t=>{
  const dir=await mkdtemp(join(tmpdir(),'puna-d2-relay-'));let server=await createCallbackRelay(config,dir);
  const listen=async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));return 'http://127.0.0.1:'+server.address().port;};let origin=await listen();
  const event={event_id:'synthetic-event-001',merchant_id:config.merchantId,type:'payment.updated',data:{id:payment.id,object:{payment}}};
  const signed=(value,url=config.notificationUrl)=>createHmac('sha256',config.signatureKey).update(url).update(value).digest('base64');
- const send=async(value=event,options={})=>{const raw=typeof value==='string'?value:JSON.stringify(value);return fetch(origin+(options.path||'/api/ordering/square/webhook'),{method:options.method||'POST',headers:{'content-type':options.contentType||'application/json','x-square-hmacsha256-signature':options.signature??signed(raw,options.signUrl),...options.headers},body:(options.method||'POST')==='GET'?undefined:raw});};
+ const send=async(value=event,options={})=>{const raw=typeof value==='string'?value:JSON.stringify(value);const response=await fetch(origin+(options.path||'/api/ordering/square/webhook'),{method:options.method||'POST',headers:{'content-type':options.contentType||'application/json','x-square-hmacsha256-signature':options.signature??signed(raw,options.signUrl),...options.headers},body:(options.method||'POST')==='GET'?undefined:raw,signal:AbortSignal.timeout(5000)});await response.arrayBuffer();return response;};
  try {
   await t.test('unrelated application admin fixture optimizer and arbitrary query routes are unavailable',async()=>{for(const path of ['/','/workspace','/food-truck','/api/local-fixtures','/_next/image','/api/ordering/square/webhook?x=1','/api/ordering/square/%77ebhook'])assert.equal((await send(event,{path})).status,404);});
   await t.test('GET and wrong content encoding/type are rejected',async()=>{assert.equal((await send(event,{method:'GET'})).status,404);assert.equal((await send(event,{contentType:'text/plain'})).status,415);assert.equal((await send(event,{headers:{'content-encoding':'gzip'}})).status,415);});
@@ -55,7 +55,7 @@ test('callback listener boundaries and restart persistence',async t=>{
   await t.test('duplicate and simultaneous delivery create one durable event',async()=>{assert.ok((await Promise.all(Array.from({length:5},()=>send(event)))).every(r=>r.status===202));assert.equal((await readdir(dir)).length,1);});
   await t.test('same event identity with changed content is refused',async()=>assert.equal((await send({...event,type:'payment.created'})).status,409));
   await t.test('delayed and out-of-order signed events enqueue without applying client payment state',async()=>{assert.equal((await send({...event,event_id:'synthetic-event-earlier',type:'payment.created',created_at:'2020-01-01T00:00:00Z'})).status,202);assert.equal((await readdir(dir)).length,2);});
-  await t.test('restart retains duplicate suppression and provider retry can be acknowledged',async()=>{await new Promise(r=>server.close(r));server=await createCallbackRelay(config,dir);origin=await listen();assert.equal((await send(event)).status,202);assert.equal((await readdir(dir)).length,2);});
+  await t.test('restart retains duplicate suppression and provider retry can be acknowledged',async()=>{await new Promise(r=>{server.close(r);server.closeAllConnections();});server=await createCallbackRelay(config,dir);origin=await listen();assert.equal((await send(event)).status,202);assert.equal((await readdir(dir)).length,2);});
   await t.test('forwarded paths and hosts cannot turn listener into an application proxy',async()=>assert.equal((await send(event,{path:'/api/local-fixtures',headers:{'x-forwarded-host':'staging.punaempanadas.ca','x-original-url':'/api/ordering/square/webhook'}})).status,404));
- }finally{await new Promise(r=>server.close(r));await rm(dir,{recursive:true,force:true});}
+ }finally{await new Promise(r=>{server.close(r);server.closeAllConnections();});await rm(dir,{recursive:true,force:true});}
 });

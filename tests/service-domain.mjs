@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+const module=async name=>import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64'));
+const {pickupWindow}=await module('pickup-window'),{DEFAULT_SERVICE_POLICY:policy,effectiveStatus,freshness,serviceValidUntil}=await module('kitchen-model');
+const now=Date.parse('2026-11-13T01:00:00Z'),at=m=>new Date(now+m*60000).toISOString(),state={mode:'open',confidence:'verified',reviewedAt:at(0),reviewDueAt:at(480),sessionOpenedAt:at(0),sessionClosesAt:at(480),heartbeatAt:null};
+let n=0;function test(name,fn){fn();n++;console.log('PASS service '+name);}
+test('ready order includes preparation buffer and explicit range',()=>assert.deepEqual(pickupWindow(now,now,3,at(480),policy,[]),{start:at(15),end:at(30)}));
+test('mixed order follows latest required batch plus buffer',()=>assert.deepEqual(pickupWindow(now,Date.parse(at(26)),10,at(480),policy,[]),{start:at(45),end:at(60)}));
+test('full batch is supported up to configured unit capacity',()=>assert.equal(pickupWindow(now,Date.parse(at(25)),500,at(480),{...policy,capacityUnits:500},[]).start,at(45)));
+test('capacity moves the entire order to the next window',()=>assert.equal(pickupWindow(now,now,3,at(480),policy,[{id:'a',pickupAt:at(15),units:58}]).start,at(30)));
+test('order count capacity applies independently of unit capacity',()=>assert.equal(pickupWindow(now,now,1,at(480),{...policy,capacityOrders:1},[{id:'a',pickupAt:at(15),units:1}]).start,at(30)));
+test('checkout cannot silently move a quoted window after a competing hold',()=>assert.throws(()=>pickupWindow(now,now,3,at(480),policy,[{id:'a',pickupAt:at(15),units:58}],at(15)),/CAPACITY/));
+test('delay invalidates a quote that no longer fits',()=>assert.throws(()=>pickupWindow(now,Date.parse(at(20)),3,at(480),policy,[],at(15)),/NO_LONGER_FITS/));
+test('window must finish before closing and capacity is bounded',()=>{assert.throws(()=>pickupWindow(now,now,1,at(29),policy,[]),/CAPACITY/);assert.throws(()=>pickupWindow(now,now,61,at(480),policy,[]),/CAPACITY/);});
+test('sleep navigation and absent heartbeat leave business open',()=>assert.equal(effectiveStatus(state,now+91e3,[],[]).status,'open'));
+test('closing time is enforced without a browser or scheduler',()=>assert.equal(effectiveStatus(state,Date.parse(at(480)),[],[]).status,'closed'));
+test('manual pause is persistent and independent of fresh inventory',()=>{assert.equal(freshness({...state,mode:'paused'},now),true);assert.equal(effectiveStatus({...state,mode:'paused'},now,[],[]).availabilityReason,'manually_paused');});
+test('pre-migration stock never implicitly becomes physically verified',()=>assert.equal(effectiveStatus({mode:'open',reviewedAt:at(0)},now,[],[]).status,'paused'));
+test('confidence loss blocks new orders but leaves stored business mode alone',()=>{assert.equal(effectiveStatus({...state,confidence:'blocked'},now,[],[]).availabilityReason,'inventory_untrusted');assert.equal(state.mode,'open');});
+test('public deadline is the earlier of review and closing',()=>assert.equal(serviceValidUntil({...state,reviewDueAt:at(60)}),at(60)));
+console.log('RESULT '+n+' service domain checks passed');

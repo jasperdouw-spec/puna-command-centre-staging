@@ -15,7 +15,7 @@ export async function runKitchenChecks({db,request,check,cookie,staffCookie}){
  await db.execute("INSERT INTO products(id,name,description,price_cents,kind,available) VALUES('kitchen-corn','Golden corn · synthetic','Disposable kitchen demonstration',800,'fresh',1),('kitchen-spinach','Spinach & cheese · synthetic','Disposable kitchen demonstration',800,'fresh',1)");
  for(const id of ['kitchen-corn','kitchen-spinach'])await db.execute("INSERT INTO commerce_products(product_id,canonical_id,category,publication) VALUES(?,?,'empanada','staging')",[id,id]);
  await check('kitchen candidate reruns safely and refuses a missing table behind its ledger',async()=>{
-  assert.match(execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{encoding:'utf8'}),/already_applied/);
+  assert.match(execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{encoding:'utf8'}),/already_applied/);assert.match(execFileSync(process.execPath,['tests/apply-service-schema.mjs'],{encoding:'utf8'}),/already_applied/);await db.query('RENAME TABLE kitchen_service TO synthetic_missing_service');try{assert.throws(()=>execFileSync(process.execPath,['tests/apply-service-schema.mjs'],{stdio:'pipe'}));}finally{await db.query('RENAME TABLE synthetic_missing_service TO kitchen_service');}
   await db.query('RENAME TABLE kitchen_observations TO synthetic_kitchen_observations');try{assert.throws(()=>execFileSync(process.execPath,['tests/apply-kitchen-schema.mjs'],{stdio:'pipe'}),/Command failed/);}finally{await db.query('RENAME TABLE synthetic_kitchen_observations TO kitchen_observations');}
   assert.equal((await inspect()).lots.length,0);assert.equal((await inspect()).state.holdSeconds,300);
  });
@@ -25,10 +25,10 @@ export async function runKitchenChecks({db,request,check,cookie,staffCookie}){
   assert.equal((await post({action:'count',productId:'kitchen-corn',quantity:1,online:0,reason:'Synthetic count'},staffCookie,staffClient)).status,403);
   assert.equal((await post({action:'hold-policy',seconds:600},staffCookie,staffClient)).status,403);
  });
- await check('reconnect requires a recent actor-specific authoritative read and starts paused',async()=>{
+ await check('stock review requires a recent actor-specific read and preserves the business mode',async()=>{
   const other=randomUUID(),s=await inspect();assert.equal((await raw({action:'connect',key:randomUUID(),clientId:other,version:s.state.version,checked:true})).status,409);
   await db.query('UPDATE kitchen_observations SET read_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 31 SECOND)');assert.equal((await raw({action:'connect',key:randomUUID(),clientId:ownerClient,version:s.state.version,checked:true})).status,409);
-  await good({action:'connect',checked:true});assert.equal((await inspect()).state.mode,'paused');await good({action:'mode',mode:'open'});
+  await good({action:'connect',checked:true});assert.equal((await inspect()).state.mode,'closed');await good({action:'mode',mode:'open'});
  });
  await check('ordinary hold policy defaults to five minutes and is owner-configurable',async()=>{
   await good({action:'hold-policy',seconds:240});assert.equal((await inspect()).state.holdSeconds,240);await good({action:'hold-policy',seconds:300});
@@ -101,7 +101,7 @@ export async function runKitchenChecks({db,request,check,cookie,staffCookie}){
  await check('wastage affecting a paid commitment records shortage, protects order and pauses online',async()=>{
   await good({action:'waste',lotId:baked.id,channel:'online',stage:'ready',quantity:1,reason:'Synthetic burnt reserved unit'});const s=await inspect();assert.equal(s.status,'paused');assert.ok(s.issues.shortages.includes(baked.id));assert.equal(s.allocations.find(a=>a.id===paid.id).state,'paid');assert.equal((await post({action:'mode',mode:'open'})).status,409);
   assert.equal((await post({action:'correct',lotId:baked.id,channel:'online',stage:'ready',quantity:3,reason:'Synthetic recount'},staffCookie,staffClient)).status,403);
-  await good({action:'correct',lotId:baked.id,channel:'online',stage:'ready',quantity:3,reason:'Verified replacement ready units counted'});await good({action:'mode',mode:'open'});
+  await good({action:'correct',lotId:baked.id,channel:'online',stage:'ready',quantity:3,reason:'Verified replacement ready units counted'});await open();
  });
  await check('delays preserve pickup commitments and stop new online allocations when promises conflict',async()=>{
   await good({action:'delay',lotId:baked.id,minutes:120,reason:'Synthetic oven delay'});const s=await inspect();assert.equal(s.status,'paused');assert.ok(s.issues.delayed.includes(paid.id));assert.equal((await post({action:'mode',mode:'open'})).status,409);
@@ -116,12 +116,17 @@ export async function runKitchenChecks({db,request,check,cookie,staffCookie}){
  await check('public availability is read-only and strips allocation, staff and private identifiers',async()=>{
   const before=(await db.query('SELECT COUNT(*) n FROM kitchen_events'))[0][0].n;const r=await request('/api/kitchen/availability');assert.equal(r.status,200);assert.equal(r.data.enabled,true);assert.ok(r.data.heartbeatAt);assert.ok(r.data.products.some(p=>p.name.includes('Golden corn')));assert.doesNotMatch(JSON.stringify(r.data),/heartbeatClient|actorId|allocations|expiresAt|Synthetic reservation|pickupAt/);assert.equal((await db.query('SELECT COUNT(*) n FROM kitchen_events'))[0][0].n,before);assert.equal((await request('/api/kitchen/availability',{method:'POST',body:{}})).status,405);
  });
- await check('stale kitchen blocks reservations and mutations even while API is reachable',async()=>{
-  await db.query('UPDATE kitchen_state SET heartbeat_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 91 SECOND)');const s=await inspect();assert.equal(s.fresh,false);assert.equal(s.status,'paused');assert.equal((await raw({action:'heartbeat',clientId:ownerClient})).status,409);assert.equal((await post({action:'fixture-reserve',items:[{lotId:baked.id,quantity:1}],pickupAt:new Date(Date.now()+3600000).toISOString(),label:'Stale rejected'})).status,409);assert.equal((await post({action:'ready',lotId:baked.id,quantity:1})).status,409);
-  const p=(await request('/api/kitchen/availability')).data;assert.equal(p.status,'paused');assert.ok(p.products.every(p=>p.ready===0&&p.baking===0));assert.equal((await inspect()).allocations.find(a=>a.id===paid.id).state,'paid');
+ await check('expired browser heartbeat leaves verified session and stock available',async()=>{
+  await db.query('UPDATE kitchen_state SET heartbeat_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 91 SECOND)');const s=await inspect();assert.equal(s.fresh,true);assert.equal(s.status,'open');assert.equal(s.connectionReason,'connection_expired');assert.equal((await request('/api/kitchen/availability')).data.status,'open');assert.equal((await raw({action:'heartbeat',clientId:ownerClient})).status,200);
  });
- await check('fresh API and heartbeat cannot keep an expired physical-stock review open',async()=>{
-  await open();await db.query('UPDATE kitchen_state SET heartbeat_at=UTC_TIMESTAMP(3),reviewed_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 901 SECOND)');assert.equal((await inspect()).status,'paused');assert.equal((await raw({action:'heartbeat',clientId:ownerClient})).status,409);assert.equal((await request('/api/kitchen/availability')).data.status,'paused');
+ await check('expired stock review pauses intake even with current heartbeat and retains obligations',async()=>{
+  await open();await db.query('UPDATE kitchen_service SET review_due_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 1 SECOND)');assert.equal((await inspect()).status,'paused');assert.equal((await raw({action:'heartbeat',clientId:ownerClient})).status,200);assert.equal((await post({action:'ready',lotId:baked.id,quantity:1})).status,409);const p=(await request('/api/kitchen/availability')).data;assert.equal(p.status,'paused');assert.ok(p.products.every(p=>p.ready===0&&p.baking===0));assert.equal((await inspect()).allocations.find(a=>a.id===paid.id).state,'paid');
+ });
+ await check('session closes by server clock and reopening requires a recent physical review',async()=>{
+  await open();await db.query('UPDATE kitchen_service SET session_closes_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 1 SECOND)');assert.equal((await request('/api/kitchen/availability')).data.status,'closed');await db.query('UPDATE kitchen_state SET reviewed_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 6 MINUTE)');assert.equal((await post({action:'mode',mode:'open'})).status,409);await open();
+ });
+ await check('service policy bounds permissions and extensions never silently extend stock confidence',async()=>{
+  const policy={action:'service-policy',reviewMinutes:720,prepMinutes:10,windowMinutes:15,capacityOrders:6,capacityUnits:60},before=(await inspect()).state.reviewDueAt;assert.equal((await post(policy,staffCookie,staffClient)).status,403);await good(policy);assert.equal((await inspect()).state.reviewDueAt,before);assert.equal((await post({...policy,reviewMinutes:721})).status,400);await good({...policy,reviewMinutes:480});await open();
  });
  await check('reconnect refuses an old version; takeover invalidates the former heartbeat owner',async()=>{
   const old=await inspect();await good({action:'mode',mode:'paused'},staffCookie,staffClient);assert.equal((await raw({action:'connect',key:randomUUID(),clientId:ownerClient,version:old.state.version,checked:true})).status,409);

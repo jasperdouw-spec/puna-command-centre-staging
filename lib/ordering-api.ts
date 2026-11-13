@@ -5,7 +5,7 @@ import {json,failure} from './http';
 import {CommerceError} from './commerce-model';
 import {localRequest,boundedJson,seal,unseal,opaqueToken,orderingIntake} from './ordering-gates';
 import {orderingInput} from './ordering-input';
-import {orderingCatalogue,orderingLimit,orderingQuote,orderingReserve,orderingStatus,tokenOrder,reject} from './ordering';
+import {orderingCatalogue,orderingLimit,orderingQuote,orderingReserve,orderingStatus,orderingCancel,tokenOrder,reject} from './ordering';
 import {payOrdering,reconcileOrdering} from './ordering-payments';
 import {dispatchNotifications} from './ordering-notifications';
 import {transaction} from './commerce';
@@ -18,6 +18,7 @@ export async function orderingPost(req:Request){if(!localRequest(req))return jso
  if(!session)reject('START_LOCAL_SESSION',401);await orderingLimit(p.action,session,p.action==='status'?200:p.action==='reserve'?6:30);
  if(p.action==='quote')return json(await orderingQuote(p.items));
  if(p.action==='reserve'){await orderingLimit('hold-email',p.email.toLowerCase(),6);return json(await orderingReserve(p,session),201);}
+ if(p.action==='cancel')return json(await orderingCancel(p.token));
  if(p.action==='status')return json(await orderingStatus(p.token));
  if(p.action==='pay'){const r=await payOrdering(p.token);await dispatchNotifications();return json(r);}
  const id=await transaction(async(c,now)=>(await tokenOrder(c,p.token,now)).id);const r=await reconcileOrdering(id);await dispatchNotifications();return json(r);
