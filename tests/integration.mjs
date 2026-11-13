@@ -563,7 +563,7 @@ try{
   await restart(true);
   const helpers=await runOrderingChecks({db,request,check,cookie,staffCookie,restart});
   await runOrderingBrowser({browser,origin,db,check,password,helpers});
-  await runMenuStudioChecks({db,request,check,cookie,staffCookie,browser,origin,password,helpers,restart});
+  await runMenuStudioChecks({db,request,check,cookie,staffCookie,browser,origin,password,ownerEmail:owner.email,helpers,restart});
   await restart(false,false);
   await check('D1 feature-off retains schema and original checkout while local fixtures refuse all actions',async()=>{assert.equal((await request('/api/checkout')).data.mode,'disabled');assert.equal((await request('/api/pickup',{cookie:staffCookie})).status,404);assert.equal((await request('/api/local-fixtures',{method:'POST',body:{action:'run-jobs'},extraHeaders:{'x-local-fixture-key':process.env.PUNA_D1_FIXTURE_SECRET}})).status,404);assert.equal((await request('/api/operations',{cookie:staffCookie})).status,200);});
  }
