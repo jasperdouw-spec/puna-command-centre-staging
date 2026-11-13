@@ -1,3 +1,5 @@
+import {transaction} from '@/lib/commerce';
+import {menuHistory,priceLocked} from '@/lib/menu';
 import {NextResponse} from 'next/server';
 import {database} from '@/lib/db';
 import {requireRole,checkOrigin} from '@/lib/auth';
@@ -13,16 +15,18 @@ export async function PATCH(req:Request){
   const user=await requireRole(['owner']);
   let body:unknown;try{body=await req.json()}catch{return NextResponse.json({error:'Invalid JSON'},{status:400})}
   const parsed=product.safeParse(body);if(!parsed.success)return NextResponse.json({error:'Invalid product fields'},{status:400});
-  const p=parsed.data,conn=await database().getConnection();
-  try{
-   await conn.beginTransaction();
-   const [prior]=await conn.execute<RowDataPacket[]>('SELECT price_cents,name,description FROM products WHERE id=? FOR UPDATE',[p.id]);
-   const [result]=await conn.execute('UPDATE products SET name=?,description=?,price_cents=?,available=?,source_status=?,version=version+1 WHERE id=? AND version=?',[p.name,p.description,p.price_cents,p.available?1:0,p.confirm?'confirmed':'initial',p.id,p.version]);
-   if(!(result as {affectedRows:number}).affectedRows){await conn.rollback();return NextResponse.json({error:'Product changed or was removed. Reload before saving.'},{status:409})}
-   if(prior.length)await conn.execute('UPDATE commerce_products SET price_confirmed=IF(?,0,price_confirmed),ingredients_confirmed=IF(?,0,ingredients_confirmed),version=version+1 WHERE product_id=?',[Number(prior[0].price_cents)!==p.price_cents,prior[0].name!==p.name||prior[0].description!==p.description,p.id]);
+  const p=parsed.data;
+  return await transaction(async(conn,now)=>{
+   const [prior]=await conn.execute<RowDataPacket[]>('SELECT price_cents,name,description,version FROM products WHERE id=? FOR UPDATE',[p.id]);
+   if(!prior[0]||Number(prior[0].version)!==p.version)return NextResponse.json({error:'Product changed or was removed. Reload before saving.'},{status:409});
+   if(Number(prior[0].price_cents)!==p.price_cents&&await priceLocked(conn,p.id))return NextResponse.json({error:'Square-linked price requires provider verification.'},{status:409});
+   await menuHistory(conn,p.id,user.id,'before legacy edit',now);
+   await conn.execute('UPDATE products SET name=?,description=?,price_cents=?,available=?,source_status=?,version=version+1 WHERE id=? AND version=?',[p.name,p.description,p.price_cents,p.available?1:0,p.confirm?'confirmed':'initial',p.id,p.version]);
+   await conn.execute('UPDATE commerce_products SET price_confirmed=IF(?,0,price_confirmed),ingredients_confirmed=IF(?,0,ingredients_confirmed),version=version+1 WHERE product_id=?',[Number(prior[0].price_cents)!==p.price_cents,prior[0].name!==p.name||prior[0].description!==p.description,p.id]);
+   await menuHistory(conn,p.id,user.id,'legacy edit',now);
    await conn.execute('INSERT INTO audit_log(actor_id,action,entity_type,entity_id) VALUES(?,?,?,?)',[user.id,p.confirm?'confirm':'update','product',p.id]);
-   await conn.commit();return NextResponse.json({ok:true,version:p.version+1,source_status:p.confirm?'confirmed':'initial'});
-  }catch(e){await conn.rollback();throw e}finally{conn.release()}
+   return NextResponse.json({ok:true,version:p.version+1,source_status:p.confirm?'confirmed':'initial'});
+  });
  }catch(e){return failure(e)}
 }
 

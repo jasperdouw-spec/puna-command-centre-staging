@@ -1,4 +1,5 @@
 import 'server-only';
+import {menuActiveSql} from './menu-model';
 import {randomUUID,createHash} from 'node:crypto';
 import type {PoolConnection,RowDataPacket} from 'mysql2/promise';
 import {transaction,audit,sqlDate} from './commerce';
@@ -18,18 +19,18 @@ async function read(c:PoolConnection,now:number){
  const [states]=await c.query<RowDataPacket[]>('SELECT s.*,v.session_opened_at,v.session_closes_at,v.review_due_at,v.confidence,v.confidence_reason,v.review_minutes,v.prep_minutes,v.window_minutes,v.capacity_orders,v.capacity_units FROM kitchen_state s JOIN kitchen_service v ON v.id=s.id WHERE s.id=1 FOR UPDATE');
  if(!states[0])fail('Kitchen schema unavailable',503);
  const s=states[0],state:KitchenState={mode:s.mode,version:Number(s.version),reviewedAt:s.reviewed_at?iso(s.reviewed_at):null,heartbeatAt:s.heartbeat_at?iso(s.heartbeat_at):null,heartbeatActor:s.heartbeat_actor,heartbeatClient:s.heartbeat_client,holdSeconds:Number(s.hold_seconds),sessionOpenedAt:s.session_opened_at?iso(s.session_opened_at):null,sessionClosesAt:s.session_closes_at?iso(s.session_closes_at):null,reviewDueAt:s.review_due_at?iso(s.review_due_at):null,confidence:s.confidence,confidenceReason:s.confidence_reason,policy:{reviewMinutes:Number(s.review_minutes),prepMinutes:Number(s.prep_minutes),windowMinutes:Number(s.window_minutes),capacityOrders:Number(s.capacity_orders),capacityUnits:Number(s.capacity_units)}};
- const [rows]=await c.query<RowDataPacket[]>("SELECT l.*,p.name,(p.available=1 AND m.publication='staging') public_item FROM kitchen_lots l JOIN products p ON p.id=l.product_id LEFT JOIN commerce_products m ON m.product_id=p.id ORDER BY l.started_at,l.id");
+ const [rows]=await c.query<RowDataPacket[]>(`SELECT l.*,p.name,(p.available=1 AND m.publication='staging' AND ${menuActiveSql}) public_item FROM kitchen_lots l JOIN products p ON p.id=l.product_id LEFT JOIN commerce_products m ON m.product_id=p.id LEFT JOIN product_menu u ON u.product_id=p.id ORDER BY l.started_at,l.id`);
  const lots:Lot[]=rows.map(l=>({id:l.id,productId:l.product_id,name:l.name,startedUnits:Number(l.started_units),startedAt:iso(l.started_at),estimatedReadyAt:iso(l.estimated_ready_at),online_ready:Number(l.online_ready),online_baking:Number(l.online_baking),truck_ready:Number(l.truck_ready),truck_baking:Number(l.truck_baking),version:Number(l.version),note:l.note,public:!!l.public_item}));
  const [orders]=await c.query<RowDataPacket[]>('SELECT * FROM kitchen_allocations ORDER BY pickup_at,created_at,id');
  const [lines]=await c.query<RowDataPacket[]>('SELECT * FROM kitchen_allocation_lines ORDER BY allocation_id,lot_id');
  const allocations:Allocation[]=orders.map(a=>({id:a.id,channel:a.channel,state:a.state,synthetic:!!a.synthetic,managedOrder:!!a.order_id,label:a.label,pickupAt:iso(a.pickup_at),expiresAt:iso(a.expires_at),createdAt:iso(a.created_at),lines:lines.filter(l=>l.allocation_id===a.id).map(l=>({lotId:l.lot_id,quantity:Number(l.quantity),readyUnits:Number(l.ready_units),setAsideUnits:Number(l.set_aside_units)}))}));
- const [publicProducts]=await c.query<RowDataPacket[]>("SELECT p.id FROM products p JOIN commerce_products m ON m.product_id=p.id WHERE p.kind='fresh' AND p.available=1 AND m.publication='staging'");
- const [products]=await c.query<RowDataPacket[]>("SELECT p.id,p.name,p.price_cents,COALESCE(m.category,'empanada') category,m.publication FROM products p LEFT JOIN commerce_products m ON m.product_id=p.id WHERE p.kind='fresh' ORDER BY p.name");
+ const [publicProducts]=await c.query<RowDataPacket[]>(`SELECT p.id FROM products p JOIN commerce_products m ON m.product_id=p.id LEFT JOIN product_menu u ON u.product_id=p.id WHERE p.kind='fresh' AND p.available=1 AND m.publication='staging' AND ${menuActiveSql}`);
+ const [products]=await c.query<RowDataPacket[]>(`SELECT p.id,p.name,p.price_cents,COALESCE(m.category,'empanada') category,m.publication,${menuActiveSql} menu_active,(COALESCE(m.category,'empanada')='empanada' AND COALESCE(u.oven_eligible,1)=1) oven_eligible FROM products p LEFT JOIN commerce_products m ON m.product_id=p.id LEFT JOIN product_menu u ON u.product_id=p.id WHERE p.kind='fresh' ORDER BY p.name`);
  let posIssues:string[]=[];if(process.env.PUNA_SQUARE_POS_ENABLED==='true'){const [issues]=await c.query<RowDataPacket[]>('SELECT id FROM kitchen_pos_issues WHERE resolved_at IS NULL');posIssues=issues.map(r=>String(r.id));}
  const [pickupProblems]=await c.query<RowDataPacket[]>('SELECT order_id FROM kitchen_pickup_schedule WHERE needs_review=1');
  const effective=effectiveStatus(state,now,lots,allocations);if(pickupProblems.length){effective.issues.delayed.push(...pickupProblems.map(r=>String(r.order_id)));if(effective.status!=='closed'){effective.status='paused';effective.availabilityReason='commitments_need_review';}}if(process.env.PUNA_SQUARE_POS_ENABLED==='true'&&effective.status!=='closed'){effective.status='paused';effective.availabilityReason='square_reconciliation_required';} // Provider catch-up acceptance is still a release gate.
  const [events]=await c.query<RowDataPacket[]>('SELECT kind,actor_id,created_at,details FROM kitchen_events ORDER BY created_at DESC,operation_key DESC LIMIT 40');
- return {publicProductIds:publicProducts.map(p=>String(p.id)),displayProductIds:products.filter(p=>p.publication==='staging'&&p.category==='empanada').map(p=>String(p.id)),connectionReason:connectionReason(state,now),history:events.map(e=>({kind:String(e.kind),actorId:Number(e.actor_id),at:iso(e.created_at),details:JSON.parse(e.details)})),state,lots,allocations,products:products.map(p=>({id:String(p.id),name:String(p.name),priceCents:Number(p.price_cents),category:String(p.category)})),serverTime:new Date(now).toISOString(),...effective,issues:{...effective.issues,pos:posIssues},heartbeatSeconds:HEARTBEAT_SECONDS,fixtures:kitchenFixtures()};
+ return {publicProductIds:publicProducts.map(p=>String(p.id)),displayProductIds:products.filter(p=>p.publication==='staging'&&p.category!=='ingredient'&&p.menu_active).map(p=>String(p.id)),connectionReason:connectionReason(state,now),history:events.map(e=>({kind:String(e.kind),actorId:Number(e.actor_id),at:iso(e.created_at),details:JSON.parse(e.details)})),state,lots,allocations,products:products.map(p=>({id:String(p.id),name:String(p.name),priceCents:Number(p.price_cents),category:String(p.category),ovenEligible:!!p.oven_eligible})),serverTime:new Date(now).toISOString(),...effective,issues:{...effective.issues,pos:posIssues},heartbeatSeconds:HEARTBEAT_SECONDS,fixtures:kitchenFixtures()};
 }
 export type KitchenSnapshot=Awaited<ReturnType<typeof read>>;
 // Availability performs the same durable expiry/reconciliation work as staff reads.
@@ -147,7 +148,7 @@ export async function kitchenAction(actor:Actor,p:KitchenInput){
    }else if(p.action==='start'||p.action==='count'){
     if(p.online>p.quantity)fail('Online allocation cannot exceed the counted batch.',400);
     if(!s.products.some(x=>x.id===p.productId))fail('Choose a fresh catalogue product.',400);
-    const id=randomUUID(),baking=p.action==='start';
+    const id=randomUUID(),baking=p.action==='start';if(baking&&!s.products.find(x=>x.id===p.productId)?.ovenEligible)fail('This product is ready-stock only.');
     await c.execute('INSERT INTO kitchen_lots(id,product_id,started_units,started_at,estimated_ready_at,online_ready,truck_ready,online_baking,truck_baking,note,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)',[id,p.productId,p.quantity,sqlDate(now),sqlDate(now+(baking?p.minutes*60000:0)),baking?0:p.online,baking?0:p.quantity-p.online,baking?p.online:0,baking?p.quantity-p.online:0,baking?'Counted into the oven':p.reason,actor.id]);result={id};
    }else if(p.action==='hold-policy')await c.execute('UPDATE kitchen_state SET hold_seconds=? WHERE id=1',[p.seconds]);
    else if(p.action==='fixture-reserve')result=await reserve(c,s,actor,now,'online',p.items,p.pickupAt,p.label);
@@ -173,6 +174,7 @@ export async function kitchenAction(actor:Actor,p:KitchenInput){
    }else{
     const op=p as Extract<KitchenInput,{lotId:string}>,l=s.lots.find(x=>x.id===op.lotId);if(!l)fail('Batch not found',404);
     if(p.action==='oven-step'){
+     if(p.delta>0&&!s.products.find(x=>x.id===l.productId)?.ovenEligible)fail('This product is ready-stock only.');
      try{Object.assign(l,adjustment(l,s.allocations,'baking',p.delta));}catch(e){fail((e as Error).message);}
     }
     if(p.action==='cancel-batch'){

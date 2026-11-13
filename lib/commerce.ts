@@ -1,4 +1,5 @@
 import 'server-only';
+import {menuActiveSql} from './menu-model';
 import {createHash,randomUUID} from 'node:crypto';
 import type {PoolConnection} from 'mysql2/promise';
 import type {RowDataPacket} from 'mysql2';
@@ -26,10 +27,10 @@ export async function configuration(c:PoolConnection){
  return {id:Number(rows[0].id),value};
 }
 export async function saleProducts(c:PoolConnection,ids:string[],lock=false){
- const [rows]=await c.query<RowDataPacket[]>(`SELECT p.id,p.name,p.price_cents,p.available,p.kind,p.version,
+ const [rows]=await c.query<RowDataPacket[]>(`SELECT p.id,p.name,p.price_cents,(p.available AND ${menuActiveSql}) available,p.kind,p.version,
  m.category,m.publication,m.price_confirmed,m.ingredients_confirmed,m.tax_rules,m.deposit_cents,m.oven_units,m.packing_seconds,
  b.physical_units,b.committed_units,b.known
- FROM products p JOIN commerce_products m ON p.id=m.product_id
+ FROM products p JOIN commerce_products m ON p.id=m.product_id LEFT JOIN product_menu u ON u.product_id=p.id
  LEFT JOIN inventory_balances b ON b.product_id=p.id AND b.location='truck'
  AND b.stage=CASE m.category WHEN 'empanada' THEN 'frozen' WHEN 'sauce' THEN 'portion' ELSE 'packaged' END
  WHERE p.id IN (?) ORDER BY p.id${lock?' FOR UPDATE':''}`,[ids]);

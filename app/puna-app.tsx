@@ -25,6 +25,7 @@ export default function PunaApp({cartPage=false}:{cartPage?:boolean}){
  useEffect(()=>{load().catch(e=>setError(e.message));fetch('/api/checkout',{cache:'no-store'}).then(r=>r.json()).then(setConfig).catch(()=>{});
   try{const raw=JSON.parse(localStorage.getItem('puna-cart-v1')||'{}'),clean:Record<string,number>={};for(const [id,n]of Object.entries(raw)){if(id.length<=64&&typeof n==='number'&&Number.isInteger(n)&&n>0&&n<=100)clean[id]=n;}setCart(clean)}catch{}setHydrated(true);
  },[load]);
+ useEffect(()=>{const refresh=()=>{if(document.visibilityState==='visible')void load().catch(()=>{});};const t=setInterval(refresh,15000);document.addEventListener('visibilitychange',refresh);return()=>{clearInterval(t);document.removeEventListener('visibilitychange',refresh);};},[load]);
  useEffect(()=>{if(hydrated)localStorage.setItem('puna-cart-v1',JSON.stringify(cart));},[cart,hydrated]);
  useEffect(()=>()=>{void card.current?.destroy()},[]);
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),3500);return()=>clearTimeout(timer)},[notice]);
@@ -59,7 +60,7 @@ export default function PunaApp({cartPage=false}:{cartPage?:boolean}){
  {hold&&<section className="notice"><h3>Sandbox checkout</h3><p>Hold expires {when(hold.expiresAt)}. No real charge or pickup.</p><div id="puna-card"/><button className="btn checkout" disabled={!cardReady||busy||paymentPending} onClick={pay}>{busy?'Verifying payment…':'Pay '+money(hold.totalCents)+' in Sandbox'}</button><p className="demo-caption">If the response is uncertain, do not retry payment. Your order will be reconciled.</p><a href={'/receipt#'+hold.id+'.'+accessKey}>Check this order securely</a></section>}
  {config.mode==='disabled'&&<p className="notice">Online ordering is not open. Sandbox payment, stock and pickup schedules must be verified first.</p>}
  </>}{error&&<p className="notice" role="alert">{error}</p>}</div>;
- const bag=data.kitchenPreview?<LiveBag bag={liveBag} cartPage={cartPage} close={()=>dialog.current?.close()} orderingLocal={!!data.orderingLocal}/>:legacyBag;
+ const bag=data.kitchenPreview?<LiveBag products={products} bag={liveBag} cartPage={cartPage} close={()=>dialog.current?.close()} orderingLocal={!!data.orderingLocal}/>:legacyBag;
  return <div className="customer"><a className="skip btn" href="#main">Skip to content</a><div className="topline"><strong>TRUCK PICKUP ONLY</strong><span className="dot">•</span><span>Staging · No real orders</span><span className="dot">•</span><span className="long">Pay online before pickup</span></div>
  <header className="site-head"><div className="wrap header-inner"><Brand/><nav className="nav" aria-label="Main navigation"><a href="/#menu">The menu</a><a href="/#story">Our story</a><a href="/#pickup">Pickup</a></nav><div className="head-actions"><button className="cart-btn" onClick={openBag} aria-label={'Open bag, '+quantity+' items'}><span className="bag-text">Your bag</span><span className="cart-count">{quantity}</span></button><a href="/#menu" className="btn header-order">Order for pickup ↗</a></div></div></header>
  {cartPage?<main id="main" className="wrap cart-page">{bag}</main>:<main id="main">

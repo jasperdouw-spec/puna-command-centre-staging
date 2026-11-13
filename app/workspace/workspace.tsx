@@ -19,7 +19,7 @@ const sections = [
   {id: 'today', label: 'Today', icon: Sun, subtitle: 'The orders, pickups and small details that need your attention.'},
   {id: 'orders', label: 'Orders', icon: ReceiptText, subtitle: 'A clear view of each order, from payment to pickup.'},
   {id: 'customers', label: 'Customers', icon: Users, subtitle: 'Order history and useful notes, kept together.'},
-  {id: 'menu', label: 'Menu', icon: Utensils, subtitle: 'Your products, prices and availability in one place.'},
+  {id: 'menu', label: 'Menu & Products', icon: Utensils, subtitle: 'Your products, prices and availability in one place.'},
   {id: 'kitchen', label: 'Kitchen', icon: ChefHat, subtitle: 'Prepare the next batch and keep stock up to date.'},
   {id: 'website', label: 'Website', icon: PanelTop, subtitle: 'Keep your story, opening hours and practical details current.'},
   {id: 'settings', label: 'Team & settings', icon: Settings2, subtitle: 'Team access, pickup schedules and the details behind the day.'},
