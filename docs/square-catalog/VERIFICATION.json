@@ -1,0 +1,89 @@
+{
+  "verifiedAt": "2026-11-13T09:30:52.321Z",
+  "deployment": "https://staging.punaempanadas.ca",
+  "branch": "codex/square-catalog-20261113",
+  "application": {
+    "localCommit": "37ca6cc59b375d5036380ed67fce7707d26179ca",
+    "remoteCommit": "b09c169dcc1d9428650f8cfd31970c97c15ecb44",
+    "tree": "81c7244b54e1a0866e39715d26480217c18c5935",
+    "ci": "https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/43398240784",
+    "deployment": "Completed"
+  },
+  "documents": [
+    {
+      "name": "RELEASE-REPORT.md",
+      "id": "1bYCyoBJNqyK1sCdPCsjtxLvz_LEj8Co7",
+      "url": "https://drive.google.com/file/d/1bYCyoBJNqyK1sCdPCsjtxLvz_LEj8Co7/view?usp=drivesdk",
+      "parent": "11j4AaRxTnL0okaAGmuhYEj6v3wfoMv7F",
+      "exactReadback": true,
+      "localLength": 12407,
+      "remoteLength": 12407
+    },
+    {
+      "name": "IMPLEMENTATION.md",
+      "id": "118Ope6l9q5BE7w9RuvFe84DbIz1h10CF",
+      "url": "https://drive.google.com/file/d/118Ope6l9q5BE7w9RuvFe84DbIz1h10CF/view?usp=drivesdk",
+      "parent": "11j4AaRxTnL0okaAGmuhYEj6v3wfoMv7F",
+      "exactReadback": true,
+      "localLength": 9430,
+      "remoteLength": 9430
+    },
+    {
+      "name": "OWNER-REVIEW.md",
+      "id": "1cD-MH9yrwal6Jze_5Wkt6S2oFHVZvXjh",
+      "url": "https://drive.google.com/file/d/1cD-MH9yrwal6Jze_5Wkt6S2oFHVZvXjh/view?usp=drivesdk",
+      "parent": "11j4AaRxTnL0okaAGmuhYEj6v3wfoMv7F",
+      "exactReadback": true,
+      "localLength": 4112,
+      "remoteLength": 4112
+    },
+    {
+      "name": "TABLET-ACCEPTANCE.md",
+      "id": "1p0-8kd8bwYRhSx5sqJ6Z8JWJQiBIhkgz",
+      "url": "https://drive.google.com/file/d/1p0-8kd8bwYRhSx5sqJ6Z8JWJQiBIhkgz/view?usp=drivesdk",
+      "parent": "1jsxbcrbHu5z_v3VcLVL-zVHsKtHMPUYP",
+      "exactReadback": true,
+      "localLength": 3306,
+      "remoteLength": 3306
+    }
+  ],
+  "projectReference": {
+    "exactOccurrences": 1,
+    "totalLength": 179444,
+    "url": "https://docs.google.com/document/d/1B3NroHjK1YnBHgYWu6CBe5900X1xPoKfEqN78XBC9z8",
+    "revision": "AHj4eMT43voorgxOZX9JtI_48IBPDIEXMjkDjlc0Pv2lqX2N2zc19HU0WhPBx4cmsIo4mwhDRuUY93JtQdNaWI6NewmXYDoatI7SAL5Vggo"
+  },
+  "evidenceArchive": {
+    "id": "19eA6OOePRgms_ZkebnyKz-IX_lnagx4i",
+    "size": 6165996,
+    "sha256": "527e3af5a4ad6dca5c66f18d87c5f6140b9eb3529ac38c8966557b84dd26ba28",
+    "exactRemoteBytes": true,
+    "method": "Downloaded original Drive bytes; SHA-256 matches local archive"
+  },
+  "archiveUrl": "https://drive.google.com/file/d/19eA6OOePRgms_ZkebnyKz-IX_lnagx4i/view",
+  "localDocumentation": "/Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/docs/square-catalog",
+  "localEvidence": "/Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/test-artifacts/square-catalog",
+  "privateBackup": {
+    "path": "/Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/test-artifacts/square-catalog/backups/pre-catalog-20261113.sql",
+    "bytes": 3219376,
+    "sha256": "03e3cfb568875364dfa8885aecb6398bca1819c57cc20ef5885cfb33432d346f",
+    "permissions": "0600",
+    "uploaded": false,
+    "restore": "Synthetic restore passed; private hosted-data restore not exercised"
+  },
+  "gates": [
+    "Customer checkout disabled",
+    "Live payments disabled",
+    "Automatic Square inventory deductions disabled",
+    "Square provider address mismatch; pickup Ucluelet only",
+    "Tax product-set and drink deposit acceptance pending",
+    "Draft publication and ingredient/allergen review pending",
+    "Real Sandbox transactions and physical Lenovo acceptance pending"
+  ],
+  "notes": [
+    "The evidence archive contains the four reports and source/screenshots, excluding private SQL and secrets.",
+    "This verification manifest and project-reference addendum were saved after the evidence archive and are separate supplemental documents.",
+    "Remote archive SHA-256 was computed from the full original bytes returned by Drive and exactly matches the local archive."
+  ]
+}
+

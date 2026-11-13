@@ -1,0 +1,20 @@
+
+13 November 2026 — Square catalog and Ucluelet pickup update
+
+Square is now authoritative for selling prices. Existing OAuth access was upgraded with ITEMS_READ while retaining reporting scopes. Catalog release 37ca6cc (equivalent remote b09c169; source tree 81c7244b54e1a0866e39715d26480217c18c5935) is deployed and verified on staging. All ten existing products are linked to active variations: five empanadas at $8 CAD, Chimichurri at $3, four San Pellegrino flavours at $3.50. Published empanadas and draft add-ons retain their identities and publication states.
+
+Pickup is Ucluelet only. Square's sole active POS identity LXTPDNGFCMPA2 is verified by recent register orders, but its Victoria address is an unresolved provider discrepancy and is not a customer pickup destination. No Square business details were changed. Real tax/deposit setup, current Chimichurri portions/ingredients/allergens, physical Lenovo acceptance and provider Sandbox acceptance remain release gates. Checkout, live payments and automatic POS deductions remain disabled.
+
+Automatic catalog polling and manual refresh were verified. Linked prices are read-only in PUNA; price/source status and exact variation mappings are visible in Menu & Products. A hosted MariaDB collation mismatch was fixed without global schema conversion; all ten imports then succeeded. Stock, stock-audit and order-line checksums are unchanged. A repeat sync created no duplicate price history. Final CI passed 228 integration checks, 92 domain checks and 25 boundary tests, plus image assertions, typecheck, standalone production build, synthetic restore and approved hero/Story visual comparisons.
+
+The Ucluelet Google Maps listing was checked directly. Staging now shows Monday and Wednesday–Friday 11:30 am–4:30 pm, Saturday–Sunday 11:30 am–6 pm, Tuesday closed. Only the opening-hours content changed; kitchen operating authority remains separate.
+
+Release report: https://drive.google.com/file/d/1bYCyoBJNqyK1sCdPCsjtxLvz_LEj8Co7/view
+Architecture and operations: https://drive.google.com/file/d/118Ope6l9q5BE7w9RuvFe84DbIz1h10CF/view
+Consolidated owner review: https://drive.google.com/file/d/1cD-MH9yrwal6Jze_5Wkt6S2oFHVZvXjh/view
+Tablet acceptance: https://drive.google.com/file/d/1p0-8kd8bwYRhSx5sqJ6Z8JWJQiBIhkgz/view
+Verified source/evidence: https://drive.google.com/file/d/19eA6OOePRgms_ZkebnyKz-IX_lnagx4i/view
+CI: https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/43398240784
+
+All four Drive Markdown documents were read back and exactly matched the local copies. The 26-entry evidence archive was verified locally, excluding private SQL and credentials. Local documentation: /Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/docs/square-catalog/. Evidence/private backup receipts: test-artifacts/square-catalog/. Rollback must use the OAuth-compatible connection-only release and retain current catalog, stock, orders and media tables. Earlier checkpoints are preserved.
+
