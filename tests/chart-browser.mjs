@@ -5,7 +5,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import ts from 'typescript';
 export async function checkCharts(page){
  const data=await (await page.request.get(new URL('/api/sales?view=dashboard&period=month&date=2025-06-15',page.url()).href)).json();
- const plot=page.locator('.sd-panel').first().getByRole('group');
+ const plot=page.locator('.sd-panel').first().getByRole('group',{name:/Use left and right arrow keys/});
  await plot.focus();await page.keyboard.press('Home');
  const first=data.current.points.filter(p=>p.elapsed)[0];
  await plot.getByRole('status').waitFor();assert.ok((await plot.getByRole('status').innerText()).includes(first.label));
