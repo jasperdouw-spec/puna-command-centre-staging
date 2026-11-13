@@ -9,7 +9,7 @@ export async function verifySyntheticRecovery(){
  const target='puna_ci_restore';
  try{
  const [existing]=await admin.execute('SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=?',[target]);assert.equal(existing.length,0,'Never overwrite a recovery target');
- const dump=execFileSync('docker',['exec','-e','MYSQL_PWD=synthetic-ci-root-only',container,'mariadb-dump','--user=root','--single-transaction','--skip-comments','--skip-triggers','--no-tablespaces','puna_ci_synthetic'],{encoding:'utf8',maxBuffer:10*1024*1024});
+ const dump=execFileSync('docker',['exec','-e','MYSQL_PWD=synthetic-ci-root-only',container,'mariadb-dump','--user=root','--single-transaction','--hex-blob','--skip-comments','--skip-triggers','--no-tablespaces','puna_ci_synthetic'],{encoding:'utf8',maxBuffer:10*1024*1024});
  assert.equal(/^\s*(?:USE\s|CREATE\s+DATABASE|DROP\s+DATABASE)/im.test(dump),false,'Dump must not select or replace a database');
  await admin.query('CREATE DATABASE puna_ci_restore');
  await admin.query('USE puna_ci_restore');await admin.query(dump);
@@ -22,6 +22,8 @@ export async function verifySyntheticRecovery(){
  return {counts,columns,indexes,keys};
  };
  const original=await metadata('puna_ci_synthetic'),restored=await metadata(target);assert.deepEqual(restored,original);
- return {tables:original.counts.length,indexes:original.indexes.length,foreignKeys:original.keys.length};
+ const media=async schema=>(await admin.query('SELECT media_id,variant,sha256,SHA2(bytes,256) actual_hash FROM '+schema+'.menu_media_files ORDER BY media_id,variant'))[0];
+ const originals=await media('puna_ci_synthetic'),restoredMedia=await media(target);if(process.env.PUNA_PHASE_D_TESTS==='true')assert.ok(originals.length>=7);assert.deepEqual(restoredMedia,originals);assert.ok(restoredMedia.every(f=>f.sha256===f.actual_hash),'Restored media bytes must match their hashes');
+ return {tables:original.counts.length,indexes:original.indexes.length,foreignKeys:original.keys.length,verifiedMediaFiles:restoredMedia.length};
  }finally{await admin.end()}
 }

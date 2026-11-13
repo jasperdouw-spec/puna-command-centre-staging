@@ -1,99 +1,51 @@
 'use client';
-
-import {useEffect, useRef, useState} from 'react';
-import {ArrowUpRight, Check, Pencil, RefreshCw, X} from 'lucide-react';
+import {useEffect,useRef,useState} from 'react';
+import {Camera,Check,ImagePlus,Plus,RefreshCw,X,History,Eye,Upload,Utensils} from 'lucide-react';
+import {cropKey,photoUrl,type MenuDraft} from '@/lib/menu-model';
+import {money} from '@/lib/puna';
 import CommerceEditor from './commerce-editor';
 import SourceImport from './source-import';
-
-type Product = {id: string; name: string; description: string; price_cents: number; available: number | boolean; kind: string; source_status: string; version: number};
-type Draft = Product & {price: string; confirmed: boolean};
-const money = (cents: number) => new Intl.NumberFormat('en-CA', {style: 'currency', currency: 'CAD'}).format(cents / 100);
-const draftFrom = (product: Product): Draft => ({...product, price: (product.price_cents / 100).toFixed(2), confirmed: false});
-
-export default function ProductWorkspace() {
-  const [revision, setRevision] = useState(0);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [selected, setSelected] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const dialog = useRef<HTMLDialogElement>(null);
-  const product = products.find(item => item.id === selected);
-  const draft = product ? drafts[product.id] || draftFrom(product) : null;
-
-  async function load() {
-    setLoading(true); setError('');
-    try {
-      const response = await fetch('/api/products', {cache: 'no-store'});
-      const data = await response.json();
-      if (!response.ok) throw Error(data.error || 'Unable to load products');
-      setProducts(data.products); setDrafts({});
-    } catch (cause) {setError((cause as Error).message)}
-    finally {setLoading(false)}
-  }
-  useEffect(() => {void load()}, []);
-  useEffect(() => {
-    if (selected && dialog.current && !dialog.current.open) dialog.current.showModal();
-    if (!selected && dialog.current?.open) dialog.current.close();
-  }, [selected]);
-
-  function open(item: Product) {
-    setError(''); setNotice('');
-    setDrafts(previous => ({...previous, [item.id]: previous[item.id] || draftFrom(item)}));
-    setSelected(item.id);
-  }
-  function edit(changes: Partial<Draft>) {
-    if (!draft) return;
-    setDrafts(previous => ({...previous, [draft.id]: {...draft, ...changes, confirmed: changes.confirmed ?? false}}));
-    setNotice('');
-  }
-  async function save() {
-    if (!draft || busy) return;
-    setError(''); setNotice('');
-    if (!/^\d+(\.\d{1,2})?$/.test(draft.price)) {setError('Enter a price with no more than two decimal places.'); return}
-    const priceCents = Math.round(Number(draft.price) * 100);
-    if (!Number.isSafeInteger(priceCents) || priceCents < 0 || priceCents > 100000) {setError('Enter a price between $0.00 and $1,000.00.'); return}
-    setBusy(true);
-    try {
-      const response = await fetch('/api/products', {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: draft.id, version: draft.version, name: draft.name, description: draft.description, price_cents: priceCents, available: Boolean(draft.available), confirm: draft.confirmed})});
-      const data = await response.json();
-      if (!response.ok) throw Error(data.error || 'Product could not be saved.');
-      const saved: Product = {...draft, price_cents: priceCents, version: data.version, source_status: data.source_status};
-      setProducts(previous => previous.map(item => item.id === saved.id ? saved : item));
-      setDrafts(previous => ({...previous, [saved.id]: draftFrom(saved)}));
-      setNotice('Product saved');
-    } catch (cause) {setError((cause as Error).message)}
-    finally {setBusy(false)}
-  }
-  function close() {if (!busy) setSelected(null)}
-  const changed = (item: Product) => {
-    const value = drafts[item.id];
-    return !!value && (value.name !== item.name || value.description !== item.description || Math.round(Number(value.price) * 100) !== item.price_cents || Boolean(value.available) !== Boolean(item.available) || value.confirmed);
-  };
-
-  return <>
-    <div className="pw-section-head"><div><h2>Menu items</h2><p className="pw-muted">Select a product to edit its details.</p></div><button type="button" onClick={load} disabled={busy || loading}><RefreshCw size={15} aria-hidden="true"/>Reload products</button></div>
-    {!selected && error && <p className="pw-alert" role="alert">{error}</p>}
-    {!selected && notice && <p className="pw-success" role="status">{notice}</p>}
-    {loading && !products.length ? <p className="pw-empty" role="status">Loading your menu…</p> : !products.length && !error ? <div className="pw-empty"><h2>Your menu is ready to begin</h2><p>Imported products will appear here for review and editing.</p></div> : products.length > 0 && <div className="pw-table-wrap"><table className="pw-table"><thead><tr><th>Product</th><th>Price</th><th className="pw-menu-availability">Availability</th><th><span className="pw-muted">Edit</span></th></tr></thead><tbody>{products.map(item => <tr key={item.id}><td><strong>{item.name}</strong><span className="pw-order-id">{item.kind === 'frozen' ? 'Frozen / internal' : 'Fresh menu'}{changed(item) ? ' · Unsaved changes' : ''}</span><span className="pw-menu-mobile-status">{item.available ? 'Available' : 'Unavailable'}</span></td><td className="pw-number">{money(item.price_cents)}</td><td className="pw-menu-availability"><span className={'pw-badge ' + (item.available ? 'pw-ready' : '')}>{item.available ? 'Available' : 'Unavailable'}</span></td><td><button type="button" className="pw-icon-button" aria-label={'Edit ' + item.name} onClick={() => open(item)}><Pencil size={17} aria-hidden="true"/><span className="pw-menu-edit-label">Edit</span></button></td></tr>)}</tbody></table></div>}
-
-    <dialog className="pw-drawer" ref={dialog} aria-label="Edit menu item" onCancel={event => {if (busy) event.preventDefault(); else close()}} onClose={close}>
-      {draft && <><div className="pw-drawer-head"><div><p className="pw-kicker">MENU ITEM</p><h2>{product?.name}</h2><p className="pw-muted">Changes are saved to the staging catalogue.</p></div><button type="button" className="pw-icon-button" aria-label="Close menu item" onClick={close} disabled={busy}><X size={19} aria-hidden="true"/></button></div>
-      <form onSubmit={event => {event.preventDefault(); void save()}}><fieldset disabled={busy}>
-        <label htmlFor="pw-product-name">Name</label><input id="pw-product-name" required maxLength={120} value={draft.name} onChange={event => edit({name: event.target.value})}/>
-        <label htmlFor="pw-product-description">Description</label><textarea id="pw-product-description" rows={5} maxLength={10000} value={draft.description} onChange={event => edit({description: event.target.value})}/>
-        <label htmlFor="pw-product-price">Price (CAD)</label><input id="pw-product-price" type="number" required min="0" max="1000" step="0.01" inputMode="decimal" value={draft.price} onChange={event => edit({price: event.target.value})}/>
-        <label className="pw-checkbox"><input type="checkbox" checked={Boolean(draft.available)} onChange={event => edit({available: event.target.checked})}/>Available</label>
-        <p className="pw-readonly-note">Current record: {draft.source_status.replaceAll('_', ' ')}. Saving an edit and confirming product details are separate choices.</p>
-        <label className="pw-checkbox"><input type="checkbox" checked={draft.confirmed} onChange={event => edit({confirmed: event.target.checked})}/>I confirm these product details</label>
-        {error && <p className="pw-alert" role="alert">{error}</p>}{notice && <p className="pw-success" role="status">{notice}</p>}
-        <div className="pw-actions"><button type="submit" className="pw-primary"><Check size={16} aria-hidden="true"/>{busy ? 'Saving…' : 'Save product'}</button><button type="button" onClick={close}>Close</button></div>
-      </fieldset></form></>}
-    </dialog>
-
-    <details className="pw-panel pw-advanced"><summary>Advanced checkout settings <ArrowUpRight size={14} aria-hidden="true"/></summary><CommerceEditor key={revision}/></details>
-    <SourceImport onImported={async () => {await load(); setRevision(value => value + 1)}}/>
-  </>;
+import './menu-studio.css';
+type Item={id:string;version:number;kind:string;publication:string;archived:boolean;priceConfirmed:boolean;ingredientsConfirmed:boolean;details:MenuDraft;draft:MenuDraft|null};
+type Revision={id:number;product_id:string;action:string;created_at:string;snapshot:{details:MenuDraft}};
+type Photo={id:string;original_bytes:number;width:number;height:number;crops:{variant:string;bytes:number}[]};
+const empty=(weekly=false,category:MenuDraft['category']='empanada'):MenuDraft=>({name:'',description:'',ingredients:'',allergens:'',priceCents:null,category,variationLabel:'',weekly,ovenEligible:category==='empanada',startsAt:weekly?new Date().toISOString():null,endsAt:null,photoId:null,crop:{x:50,y:50,zoom:100},photoAlt:'',squareCandidate:''});
+const localTime=(v:string|null)=>{if(!v)return '';const d=new Date(v);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);};
+async function api(path:string,options?:RequestInit){const r=await fetch(path,{cache:'no-store',...options});const d=await r.json();if(!r.ok)throw Error(d.error||'Unable to save. Please try again.');return d;}
+export default function ProductWorkspace(){
+ const [revision,setRevision]=useState(0);
+ const [items,setItems]=useState<Item[]>([]),[history,setHistory]=useState<Revision[]>([]),[photos,setPhotos]=useState<Photo[]>([]),[filter,setFilter]=useState('all'),[selected,setSelected]=useState<string|null>(null),[draft,setDraft]=useState<MenuDraft|null>(null),[tab,setTab]=useState('details'),[notice,setNotice]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false),[preview,setPreview]=useState(false),[photoResult,setPhotoResult]=useState(''),[cropApplied,setCropApplied]=useState('');
+ const dialog=useRef<HTMLDialogElement>(null),upload=useRef<HTMLInputElement>(null),camera=useRef<HTMLInputElement>(null),key=useRef<{fingerprint:string;key:string}|null>(null);
+ const product=items.find(i=>i.id===selected);
+ async function load(){const d=await api('/api/menu');setItems(d.products);setHistory(d.history);setRevision(n=>n+1);return d.products as Item[];}
+ async function loadPhotos(){const d=await api('/api/menu-media');setPhotos(d.photos);}
+ useEffect(()=>{void load().catch(e=>setError(e.message));},[]);
+ useEffect(()=>{if(selected&&dialog.current&&!dialog.current.open)dialog.current.showModal();if(!selected&&dialog.current?.open)dialog.current.close();},[selected]);
+ function open(p:Item){setSelected(p.id);setDraft(p.draft||p.details);setCropApplied(cropKey((p.draft||p.details).crop));setConfirmed(false);setError('');setNotice('');setTab('details');setPreview(false);}
+ function edit(change:Partial<MenuDraft>){setDraft(d=>d?{...d,...change}:d);setConfirmed(false);setNotice('');}
+ async function run(action:string,extra:Record<string,unknown>={}){if(busy)return;setBusy(true);setError('');setNotice('');try{
+  const body={action,id:selected==='new'?undefined:selected,version:product?.version,...(['save','publish','create'].includes(action)?{draft}:{}),confirmed,...extra};const fingerprint=JSON.stringify(body);if(key.current?.fingerprint!==fingerprint)key.current={fingerprint,key:crypto.randomUUID()};
+  const result=await api('/api/menu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,key:key.current.key})});key.current=null;
+  const all=await load(),saved=all.find(i=>i.id===result.id);if(saved){setSelected(saved.id);setDraft(saved.draft||saved.details);}
+  setConfirmed(false);setNotice(action==='publish'?'Published to the menu. Stock and checkout safeguards still apply.':action==='restore'?'Earlier details restored as a draft. Preview and publish when ready.':action==='unpublish'||action==='archive'?'Hidden from new orders. Existing commitments are preserved.':'Draft saved. Your published menu is unchanged.');
+ }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ function create(weekly=false,category:MenuDraft['category']='empanada'){setSelected('new');setDraft(empty(weekly,category));setTab('details');setConfirmed(false);setPreview(false);setError('');setNotice('');}
+ async function sendPhoto(file?:File){if(!file||!draft)return;if(file.size>8*1024*1024){setError('Choose a photo up to 8 MB.');return;}setBusy(true);setError('');setPhotoResult('Applying PUNA styling…');try{const r=await api('/api/menu-media',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});edit({photoId:r.id,crop:r.crop,photoAlt:draft.name+' — PUNA product photograph'});setCropApplied(cropKey(r.crop));const f=r.files.find((f:{variant:string})=>f.variant.endsWith('-640.webp'));setPhotoResult(`Ready to preview · ${Math.round(f.bytes/1024)} KB card image · original safely retained`);await loadPhotos();}catch(e){setPhotoResult('');setError((e as Error).message);}finally{setBusy(false);if(upload.current)upload.current.value='';if(camera.current)camera.current.value='';}}
+ async function applyCrop(){if(!draft?.photoId)return;setBusy(true);setError('');try{await api('/api/menu-media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:draft.photoId,crop:draft.crop})});setCropApplied(cropKey(draft.crop));setPhotoResult('Crop ready. Preview, then publish your product.');await loadPhotos();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ const filtered=items.filter(p=>filter==='all'||filter==='weekly'?(filter==='all'||p.details.weekly||p.draft?.weekly):filter==='draft'?p.publication==='draft'||!!p.draft:filter==='archived'?p.archived:p.details.category===filter);
+ const photo=draft?.photoId?photoUrl(draft.photoId,cropApplied||cropKey(draft.crop)):null;
+ return <div className="ms"><div className="ms-top"><div><p className="pw-kicker">YOUR MENU, YOUR WAY</p><h2>Menu & Products</h2><p>Fresh ideas, familiar favourites. Edit, preview and publish from here.</p></div><div className="ms-actions"><button onClick={()=>void load().catch(e=>setError(e.message))} disabled={busy} aria-label="Reload products"><RefreshCw size={18}/></button><button className="pw-primary" onClick={()=>create()}><Plus size={18}/>New product</button></div></div>
+ <div className="ms-special"><div><span className="ms-gold">WEEKLY SPECIAL</span><h3>Something new from José’s kitchen</h3><p>Give every new special its own name, photograph and schedule. Previous weeks stay in your history.</p></div><button onClick={()=>create(true)}><Plus size={18}/>Create a special</button></div>
+ <nav className="ms-filters" aria-label="Product categories">{[['all','All Products'],['empanada','Empanadas'],['sauce','Sauces'],['drink','Drinks & flavours'],['weekly','Weekly Special'],['draft','Drafts'],['archived','Archived'],['photos','Photos & PUNA Photo Studio']].map(([id,label])=><button key={id} aria-pressed={filter===id} onClick={()=>{setFilter(id);if(id==='photos')void loadPhotos().catch(e=>setError(e.message));}}>{label}</button>)}</nav>
+ {!selected&&error&&<p role="alert" className="pw-alert">{error}</p>}
+ {filter==='photos'?<section><h3>PUNA Photo Studio</h3><p>Originals stay private. Select a product to upload, adjust its crop and publish a photo.</p><div className="ms-gallery">{photos.map(p=><figure key={p.id}><img src={'/api/menu-media/'+p.id+'/'+(p.crops[0]?.variant||'50-50-100-640.webp')} alt="Previously uploaded PUNA photograph" width={320} height={240}/><figcaption>{p.width} × {p.height} · {Math.round(p.original_bytes/1024)} KB original</figcaption><a href={'/api/menu-media/'+p.id+'/original'}>Download private original</a></figure>)}</div>{!photos.length&&<p className="pw-empty">Your photo library will appear here after the first upload.</p>}</section>:<><div className="ms-list">{filtered.map(p=><article className="ms-tile" key={p.id}>{p.details.photoId?<img src={photoUrl(p.details.photoId,cropKey(p.details.crop),320)} alt={p.details.photoAlt} width={320} height={240}/>:<div className="ms-photo-placeholder"><Utensils size={30}/><span>Ready for your photo</span></div>}<div className="ms-tile-body"><span className="ms-tag">{p.archived?'Archived':p.publication==='draft'?'Draft':p.details.startsAt&&Date.parse(p.details.startsAt)>Date.now()?'Scheduled':p.details.endsAt&&Date.parse(p.details.endsAt)<=Date.now()?'Ended':'Published'}{p.draft&&p.publication!=='draft'?' · draft changes':''}</span><h3>{p.details.name}</h3><p>{p.details.category==='drink'?'Drink flavour':p.details.weekly?'Weekly Special':p.details.category} · {p.draft?.priceCents===null?'Price needed':money(p.details.priceCents||0)}{!p.priceConfirmed?' · review price':''}</p><button aria-label={'Edit '+p.details.name} onClick={()=>open(p)}>Edit product <span aria-hidden="true">↗</span></button></div></article>)}</div>{filter==='drink'&&<button onClick={()=>create(false,'drink')}><Plus size={18}/>Add a drink flavour</button>}</>}
+ <dialog ref={dialog} className="ms-editor" aria-label="Edit menu item" onCancel={e=>{if(busy)e.preventDefault();else setSelected(null);}} onClose={()=>setSelected(null)}>{draft&&<><header className="ms-editor-head"><div><p className="pw-kicker">{draft.weekly?'WEEKLY SPECIAL':'MENU & PRODUCTS'}</p><h2>{draft.name||'New product'}</h2><p>Save a draft, preview it, then publish when ready.</p></div><button aria-label="Close menu item" disabled={busy} onClick={()=>setSelected(null)}><X size={22}/></button></header><nav className="ms-tabs" aria-label="Product editing">{[['details','Details & price'],['photos','Photo Studio'],['schedule','Visibility & schedule'],['history','Product History']].map(([id,label])=><button key={id} aria-pressed={tab===id} onClick={()=>{setTab(id);if(id==='photos')void loadPhotos().catch(e=>setError(e.message));}}>{label}</button>)}<button aria-pressed={preview} onClick={()=>setPreview(!preview)}><Eye size={16}/>Preview</button></nav>
+ <div className={'ms-editor-content '+(preview?'ms-with-preview':'')}><div><fieldset disabled={busy} className="ms-fields">{tab==='details'&&<><label>Name<input required maxLength={120} value={draft.name} onChange={e=>edit({name:e.target.value})}/></label><label>Description<textarea aria-label="Description" rows={4} maxLength={10000} value={draft.description} onChange={e=>edit({description:e.target.value})}/></label><label>Ingredients & filling<textarea aria-label="Ingredients & filling" rows={3} maxLength={5000} value={draft.ingredients} onChange={e=>edit({ingredients:e.target.value})}/></label><label>Allergens & dietary information<textarea aria-label="Allergens & dietary information" rows={2} maxLength={2000} value={draft.allergens} onChange={e=>edit({allergens:e.target.value})}/></label><div className="ms-pair"><label>Price (CAD)<input type="number" inputMode="decimal" min="0" max="1000" step="0.01" value={draft.priceCents===null?'':(draft.priceCents/100)} onChange={e=>edit({priceCents:e.target.value===''?null:Math.round(Number(e.target.value)*100)})}/></label><label>Category<select value={draft.category} onChange={e=>{const category=e.target.value as MenuDraft['category'];edit({category,ovenEligible:category==='empanada',weekly:category==='empanada'&&draft.weekly});}}><option value="empanada">Empanadas</option><option value="sauce">Sauces</option><option value="drink">Drinks</option><option value="ingredient">Internal ingredient</option></select></label></div>{draft.category==='drink'&&<label>Flavour label<input maxLength={120} placeholder="e.g. Limonata" value={draft.variationLabel} onChange={e=>edit({variationLabel:e.target.value})}/></label>}<p className="ms-help">Each drink flavour keeps its own stock count. Prices are in CAD; tax and deposits remain in Advanced checkout settings.</p><details><summary>Square catalogue reference</summary><p>Leave blank for owner-managed catalogue details. A new Square reference stays a draft until provider verification; it does not create or change a Square item.</p><label>Square variation reference<input maxLength={100} value={draft.squareCandidate} onChange={e=>edit({squareCandidate:e.target.value})}/></label></details></>}
+ {tab==='photos'&&<><div className="ms-photo-intro"><Camera size={28}/><h3>PUNA Photo Studio</h3><p>Your real food, with gentle warmth and a consistent crop. No invented ingredients or AI food.</p></div><div className="ms-actions"><button onClick={()=>camera.current?.click()}><Camera size={18}/>Take a photo</button><button onClick={()=>upload.current?.click()}><Upload size={18}/>Upload photo</button></div><input className="ms-file" ref={camera} aria-label="Take product photo" type="file" accept="image/jpeg,image/png" capture="environment" onChange={e=>void sendPhoto(e.target.files?.[0])}/><input className="ms-file" ref={upload} aria-label="Upload product photo" type="file" accept="image/jpeg,image/png" onChange={e=>void sendPhoto(e.target.files?.[0])}/><p className="ms-help">JPEG or PNG · up to 8 MB · export HEIC/HEIF as JPEG first. Camera availability depends on your device.</p>{photo&&<><div className="ms-crop-preview"><img src={photo} alt={draft.photoAlt||'Product photo preview'} width={640} height={480}/></div>{(['x','y','zoom'] as const).map(axis=><label key={axis}>{axis==='x'?'Horizontal framing':axis==='y'?'Vertical framing':'Zoom'}<input type="range" min={axis==='zoom'?100:0} max={axis==='zoom'?200:100} value={draft.crop[axis]} onChange={e=>edit({crop:{...draft.crop,[axis]:Number(e.target.value)}})}/></label>)}<button onClick={()=>void applyCrop()} disabled={cropApplied===cropKey(draft.crop)}>Apply crop & preview</button><label>Photo description (alt text)<input maxLength={240} value={draft.photoAlt} onChange={e=>edit({photoAlt:e.target.value})}/></label><p className="ms-help">Review the suggested description. Describe only what this photograph actually shows.</p><button onClick={()=>edit({photoId:null,photoAlt:''})}>Remove photo from this draft</button></>}{photoResult&&<p role="status" className="pw-success">{photoResult}</p>}<details><summary>Select a previously uploaded photo</summary><div className="ms-gallery">{photos.map(p=><button key={p.id} aria-label={'Use photo '+p.id} onClick={()=>{const key=p.crops[0]?.variant.split('-640')[0]||'50-50-100';const [x,y,zoom]=key.split('-').map(Number);edit({photoId:p.id,crop:{x,y,zoom},photoAlt:draft.name+' — PUNA product photograph'});setCropApplied(key);}}><img src={'/api/menu-media/'+p.id+'/'+(p.crops[0]?.variant||'50-50-100-640.webp')} alt="Previously uploaded product photograph" width={320} height={240}/></button>)}</div></details></>}
+ {tab==='schedule'&&<><h3>Visibility & scheduling</h3><p>Publishing makes this card visible during its schedule. Ordering always uses confirmed kitchen stock.</p>{draft.category==='empanada'&&<><label className="ms-check"><input type="checkbox" checked={draft.weekly} onChange={e=>edit({weekly:e.target.checked})}/>Feature as a Weekly Special</label><label className="ms-check"><input type="checkbox" checked={draft.ovenEligible} onChange={e=>edit({ovenEligible:e.target.checked})}/>Allow staff to create oven batches</label></>}<label>Start date & time<input type="datetime-local" value={localTime(draft.startsAt)} onChange={e=>edit({startsAt:e.target.value?new Date(e.target.value).toISOString():null})}/></label><label>End date & time (optional)<input type="datetime-local" value={localTime(draft.endsAt)} onChange={e=>edit({endsAt:e.target.value?new Date(e.target.value).toISOString():null})}/></label><p className="ms-help">Times use this device’s timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}. After the end time, new orders stop. Existing customer commitments remain protected.</p>{selected!=='new'&&<div className="ms-actions"><button onClick={()=>void run('unpublish')}>Unpublish</button><button onClick={()=>void run('archive')}>Archive product</button>{draft.weekly&&<button onClick={()=>void run('clone')}>Use as a new special</button>}</div>}</>}
+ {tab==='history'&&<><h3><History size={20}/>Product History</h3><p>Restoring creates a draft for review. It never rewrites past orders or inventory.</p>{history.filter(h=>h.product_id===selected).map(h=><div className="ms-history" key={h.id}><div><strong>{h.action}</strong><small>{new Date(h.created_at).toLocaleString()} · {h.snapshot.details.name}</small></div><button onClick={()=>void run('restore',{revision:h.id})}>Restore as draft</button></div>)}</>}
+ </fieldset></div>{preview&&<aside className="ms-preview" aria-label="Product preview"><span className="ms-tag">PREVIEW · NOT LIVE</span><article>{photo&&<img src={photo} alt={draft.photoAlt||'Photo preview'} width={640} height={480}/>}<span className="ms-gold">{draft.weekly?'WEEKLY SPECIAL':draft.category==='drink'?'DRINKS':'MADE FROM SCRATCH'}</span><h3>{draft.name||'Your product name'}</h3><p>{draft.description}</p><p>{draft.ingredients}</p>{draft.allergens&&<small>{draft.allergens}</small>}<strong>{draft.priceCents===null?'Price required':money(draft.priceCents)}</strong><p className="ms-help">Live stock appears after staff count it. This preview creates no inventory.</p></article></aside>}</div>
+ <footer className="ms-editor-footer">{error&&<p role="alert" className="pw-alert">{error}</p>}{notice&&<p role="status" className="pw-success">{notice}</p>}<label className="ms-check"><input type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.target.checked)}/>I confirm the price, ingredients, photo and schedule are accurate</label><div className="ms-actions"><button disabled={busy||!draft.name||!!draft.photoId&&cropApplied!==cropKey(draft.crop)} onClick={()=>void run(selected==='new'?'create':'save')}>{busy?'Saving…':'Save draft'}</button><button className="pw-primary" disabled={busy||!confirmed||selected==='new'||!!draft.photoId&&cropApplied!==cropKey(draft.crop)} onClick={()=>void run('publish')}><Check size={18}/>Publish to menu</button></div>{selected==='new'&&<small>Save your new product first, then preview and publish.</small>}</footer></>}</dialog>
+ <details className="pw-panel pw-advanced"><summary>Advanced checkout settings</summary><CommerceEditor key={revision}/></details><SourceImport onImported={async()=>{await load();}}/>
+ </div>;
 }

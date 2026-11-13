@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import ts from 'typescript';
+import sharp from 'sharp';
+mkdirSync('.domain-tests',{recursive:true});
+for(const name of ['menu-model','photo-studio'])writeFileSync('.domain-tests/'+name+'.mjs',ts.transpileModule(readFileSync('lib/'+name+'.ts','utf8').replaceAll("'./menu-model'","'./menu-model.mjs'"),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
+const {sauceSuggestion,scheduleActive,cropSchema}=await import('../.domain-tests/menu-model.mjs');
+const {processPhoto,MAX_PHOTO_BYTES}=await import('../.domain-tests/photo-studio.mjs');
+for(const [n,stock,want] of [[4,8,2],[5,8,3],[4,1,1],[0,5,0],[6,0,0]])assert.equal(sauceSuggestion(n,stock),want);
+assert.equal(scheduleActive('2026-01-01T00:00:00Z','2026-01-02T00:00:00Z',Date.parse('2026-01-02T00:00:00Z')),false);
+assert.equal(cropSchema.safeParse({x:101,y:50,zoom:100}).success,false);
+for(const bytes of [Buffer.from('<svg onload="evil"/>'),Buffer.from('not a JPEG'),Buffer.alloc(MAX_PHOTO_BYTES+1)])await assert.rejects(processPhoto(bytes,{x:50,y:50,zoom:100}));
+const source=await sharp('public/photos/baking-tray.webp').jpeg({quality:95}).withMetadata({orientation:6}).toBuffer();
+const start=performance.now(),p=await processPhoto(source,{x:50,y:50,zoom:100}),repeat=await processPhoto(source,{x:50,y:50,zoom:100});
+assert.equal(p.files.length,6);assert.deepEqual(p.files.map(f=>f.hash),repeat.files.map(f=>f.hash));
+for(const f of p.files){const m=await sharp(f.data).metadata();assert.equal(m.exif,undefined);assert.equal(m.icc,undefined);assert.equal(m.orientation,undefined);assert.equal(m.width/m.height,4/3);assert.equal(m.format,f.mime==='image/webp'?'webp':'jpeg');}
+const card=p.files.find(f=>f.variant.endsWith('640.webp'));assert.ok(card.data.length<200000);assert.ok(card.data.length<source.length);
+const reframed=await processPhoto(source,{x:0,y:100,zoom:150});assert.notEqual(reframed.files[0].hash,p.files[0].hash);
+const measurement={originalBytes:source.length,webp640Bytes:card.data.length,savingPercent:Math.round((1-card.data.length/source.length)*100),twoPassMilliseconds:Math.round(performance.now()-start),preset:p.preset};
+mkdirSync('test-artifacts/menu-studio',{recursive:true});writeFileSync('test-artifacts/menu-studio/photo-measurements.json',JSON.stringify(measurement,null,2));console.log('PASS menu schedules, bounded recommendations, invalid formats, reproducible crop, metadata stripping and six responsive derivatives');console.log('PHOTO_MEASUREMENTS '+JSON.stringify(measurement));

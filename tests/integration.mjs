@@ -1,3 +1,4 @@
+import {runMenuStudioChecks} from './menu-studio-integration.mjs';
 import {checkCharts} from './chart-browser.mjs';
 import {captureApprovedSection} from './approved-visual.mjs';
 import {runPosChecks} from './kitchen-square-integration.mjs';
@@ -33,7 +34,7 @@ const appAddress={HOSTNAME:'127.0.0.1',PORT:'3100',PUNA_CHECKOUT_MODE:'square-sa
 const certDirectory=mkdtempSync(join(tmpdir(),'puna-phase-b-synthetic-'));
 let app,proxy,browser;let passed=0;
 const check=async(name,fn)=>{try{await fn();passed++;console.log('PASS '+name)}catch(error){
- console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),overflow:await p.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.right>innerWidth+1&&r.width>0}).slice(0,12).map(e=>({tag:e.tagName,cls:e.className,right:e.getBoundingClientRect().right}))),labelCount:await p.locator('label').count(),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
+ console.log('FAIL '+name);if(browser){mkdirSync('test-artifacts/screenshots',{recursive:true});let n=0;for(const c of browser.contexts())for(const p of c.pages()){console.log('Browser diagnostic '+JSON.stringify({path:new URL(p.url()).pathname+new URL(p.url()).search,headings:await p.getByRole('heading').allTextContents(),overflow:await p.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.right>innerWidth+1&&r.width>0}).slice(0,12).map(e=>({tag:e.tagName,cls:e.className,right:e.getBoundingClientRect().right}))),labelCount:await p.locator('label').count(),dialogs:await p.locator('dialog[open]').evaluateAll(ds=>ds.map(d=>({name:d.getAttribute('aria-label'),labels:[...d.querySelectorAll('label')].map(l=>l.textContent?.slice(0,100))}))),alerts:await p.getByRole('alert').allTextContents(),statuses:await p.getByRole('status').allTextContents()}));await p.screenshot({path:'test-artifacts/screenshots/failure-'+(++n)+'.png',fullPage:true})}}throw error}};
 function request(path,{method='GET',body,rawBody,cookie,originHeader=origin,extraHeaders={}}={}){
  return new Promise((resolve,reject)=>{
   const headers={...extraHeaders};if(cookie)headers.cookie=cookie;if(originHeader!==null)headers.origin=originHeader;
@@ -56,7 +57,8 @@ try{
  execFileSync(process.execPath,['scripts/migrate.mjs','--apply'],{stdio:'pipe'});
  execFileSync(process.execPath,['scripts/migrate.mjs','--migration=007_customer_notes','--apply'],{stdio:'pipe'});
  execFileSync(process.execPath,['scripts/migrate.mjs','--migration=008_reporting','--apply'],{stdio:'pipe'});
- await check('additive migration reruns preserve the schema',async()=>{for(const migration of ['006_commerce','007_customer_notes','008_reporting']){const out=execFileSync(process.execPath,['scripts/migrate.mjs','--migration='+migration,'--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)}});
+ execFileSync(process.execPath,['scripts/migrate.mjs','--migration=011_menu_studio','--apply'],{stdio:'pipe'});
+ await check('additive migration reruns preserve the schema',async()=>{for(const migration of ['006_commerce','007_customer_notes','008_reporting','011_menu_studio']){const out=execFileSync(process.execPath,['scripts/migrate.mjs','--migration='+migration,'--apply'],{encoding:'utf8'});assert.match(out,/already_applied/)}});
  await check('migration ledger cannot hide a missing expected table',async()=>{
   const [before]=await db.query("SELECT checksum FROM schema_migrations WHERE id='007_customer_notes'");
   await db.query('RENAME TABLE customer_notes TO synthetic_migration_customer_notes');
@@ -284,20 +286,14 @@ try{
   const editor=target.getByRole('dialog',{name:'Edit menu item',exact:true});
   await editor.waitFor();return editor;
  };
- await check('browser login and explicit product edit persist after refresh',async()=>{
+ await check('browser drafts persist separately; explicit publication updates the menu',async()=>{
   await page.goto(origin+'/sign-in');await page.getByLabel('Email',{exact:true}).fill(owner.email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.waitForURL('**/workspace');
   const logo=page.getByRole('link',{name:'Puna website',exact:true}).locator('img');await logo.waitFor();await logo.evaluate(im=>im.decode());assert.ok(await logo.evaluate(im=>im.naturalWidth>0));
-  await navigateWorkspace(page,'Menu');
-  let editor=await openMenuItem(page,(await product()).name);
-  await editor.getByLabel('Name',{exact:true}).fill('Synthetic browser edit');
-  await editor.getByLabel('Price (CAD)',{exact:true}).fill('8.25');
-  assert.notEqual((await product()).name,'Synthetic browser edit');
-  await editor.getByRole('button',{name:'Save product',exact:true}).click();await page.getByRole('status').filter({hasText:'Product saved'}).waitFor();
-  assert.equal((await product()).price_cents,825);
-  await page.reload();editor=await openMenuItem(page,'Synthetic browser edit');
-  assert.equal(await editor.getByLabel('Name',{exact:true}).inputValue(),'Synthetic browser edit');assert.equal((await product()).source_status,'initial');
-  assert.equal(Number(await editor.getByLabel('Price (CAD)',{exact:true}).inputValue()),8.25);
-  await editor.getByLabel('I confirm these product details',{exact:true}).check();await editor.getByRole('button',{name:'Save product',exact:true}).click();await page.getByRole('status').filter({hasText:'Product saved'}).waitFor();assert.equal((await product()).source_status,'confirmed');
+  await navigateWorkspace(page,'Menu & Products');const original=await product();let editor=await openMenuItem(page,original.name);
+  await editor.getByLabel('Name',{exact:true}).fill('Synthetic browser edit');await editor.getByLabel('Price (CAD)',{exact:true}).fill('8.25');await editor.getByLabel('Ingredients & filling',{exact:true}).fill('Synthetic ingredients');
+  await editor.getByRole('button',{name:'Save draft',exact:true}).click();await editor.getByRole('status').filter({hasText:'Draft saved'}).waitFor();assert.equal((await product()).name,original.name);
+  await page.reload();editor=await openMenuItem(page,original.name);assert.equal(await editor.getByLabel('Name',{exact:true}).inputValue(),'Synthetic browser edit');assert.equal(Number(await editor.getByLabel('Price (CAD)',{exact:true}).inputValue()),8.25);
+  await editor.getByLabel('I confirm the price, ingredients, photo and schedule are accurate',{exact:true}).check();await editor.getByRole('button',{name:'Publish to menu',exact:true}).click();await editor.getByRole('status').filter({hasText:'Published to the menu'}).waitFor();assert.equal((await product()).source_status,'confirmed');assert.equal((await product()).price_cents,825);
   await editor.getByRole('button',{name:'Close menu item',exact:true}).click();
  });
  await check('mobile editor remains usable without horizontal overflow',async()=>{
@@ -407,7 +403,7 @@ try{
   const ownerContext=await browser.newContext({ignoreHTTPSErrors:true});await ownerContext.route('**/*',r=>new URL(r.request().url()).hostname==='localhost'?r.continue():r.abort());const op=await ownerContext.newPage();
   await op.goto(origin+'/sign-in');await op.getByLabel('Email',{exact:true}).fill('owner-two@example.test');await op.getByLabel('Password',{exact:true}).fill(password);await op.getByRole('button',{name:'Sign in',exact:true}).click();await op.waitForURL('**/workspace');
   const nav=op.getByRole('navigation',{name:'Puna workspace',exact:true});
-  for(const name of ['Today','Orders','Customers','Menu','Kitchen','Website','Team & settings'])await nav.getByRole('button',{name,exact:true}).waitFor();
+  for(const name of ['Today','Orders','Customers','Menu & Products','Kitchen','Website','Team & settings'])await nav.getByRole('button',{name,exact:true}).waitFor();
   assert.equal(await op.getByRole('region',{name:'Puna orbital navigation'}).count(),0);
   await navigateWorkspace(op,'Team & settings');await op.getByRole('heading',{name:'Team access',exact:true}).waitFor();
   await op.getByRole('button',{name:'Sign out',exact:true}).click();await op.waitForURL('**/sign-in');await ownerContext.close();
@@ -479,7 +475,7 @@ try{
    await page.getByRole('link',{name:'Puna website',exact:true}).locator('img').evaluate(im=>im.decode());
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await page.screenshot({path:'test-artifacts/screenshots/'+device+'-home.png',fullPage:true});
-   await navigateWorkspace(page,'Menu');await page.getByRole('button',{name:'Edit Synthetic browser edit',exact:true}).waitFor();
+   await navigateWorkspace(page,'Menu & Products');await page.getByRole('button',{name:'Edit Synthetic browser edit',exact:true}).waitFor();
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await page.screenshot({path:'test-artifacts/screenshots/'+device+'-products.png',fullPage:true});
    const editor=await openMenuItem(page,'Synthetic browser edit');
@@ -525,8 +521,8 @@ try{
   assert.ok((await request('/api/puna')).data.products.some(p=>p.id===id&&p.price===800&&!p.available));
   const group=await openMenuItem(page,name);
   await group.getByLabel('Description',{exact:true}).fill('Synthetic owner edit retained.');
-  await group.getByRole('button',{name:'Save product',exact:true}).click();
-  await page.getByRole('status').filter({hasText:'Product saved'}).waitFor();
+  await group.getByLabel('Ingredients & filling',{exact:true}).fill('Synthetic ingredients');await group.getByLabel('I confirm the price, ingredients, photo and schedule are accurate',{exact:true}).check();await group.getByRole('button',{name:'Publish to menu',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'Published to the menu'}).waitFor();
   await group.getByRole('button',{name:'Close menu item',exact:true}).click();
   const row={id,canonicalId:'synthetic:browser-source',sourceKey:'synthetic:browser-source',sourceReference:'https://example.test/catalogue',sourceHash:'b'.repeat(64),name,description:'Conflicting replacement',priceCents:800,kind:'fresh',category:'empanada',priceConfirmed:true};
   await page.getByLabel('Reviewed catalogue package',{exact:true}).fill(JSON.stringify({action:'import-products',rows:[row]}));await page.getByRole('button',{name:'Review import',exact:true}).click();await page.getByRole('button',{name:'Import reviewed records as drafts',exact:true}).click();
@@ -567,6 +563,7 @@ try{
   await restart(true);
   const helpers=await runOrderingChecks({db,request,check,cookie,staffCookie,restart});
   await runOrderingBrowser({browser,origin,db,check,password,helpers});
+  await runMenuStudioChecks({db,request,check,cookie,staffCookie,browser,origin,password,ownerEmail:owner.email,helpers,restart});
   await restart(false,false);
   await check('D1 feature-off retains schema and original checkout while local fixtures refuse all actions',async()=>{assert.equal((await request('/api/checkout')).data.mode,'disabled');assert.equal((await request('/api/pickup',{cookie:staffCookie})).status,404);assert.equal((await request('/api/local-fixtures',{method:'POST',body:{action:'run-jobs'},extraHeaders:{'x-local-fixture-key':process.env.PUNA_D1_FIXTURE_SECRET}})).status,404);assert.equal((await request('/api/operations',{cookie:staffCookie})).status,200);});
  }
