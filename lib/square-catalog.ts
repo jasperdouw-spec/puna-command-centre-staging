@@ -48,6 +48,7 @@ export async function syncSquareCatalog(actor:number|null,force=false){return wi
   if(!Array.isArray(locations))fail('SQUARE_LOCATIONS_INCOMPLETE');
   // Store discovery even when a permission upgrade is still needed. Never select a location automatically.
   await transaction(async c=>{const [s]=await c.query<RowDataPacket[]>('SELECT merchant_id FROM square_catalog_state WHERE id=1');if(s[0].merchant_id&&s[0].merchant_id!==identity.merchantId)fail('SQUARE_MERCHANT_MISMATCH');await c.execute('UPDATE square_catalog_state SET merchant_id=?,locations_json=? WHERE id=1',[identity.merchantId,JSON.stringify(locations.map((l:any)=>({id:l.id,name:l.name,address:l.address||null,status:l.status,country:l.country,currency:l.currency,timezone:l.timezone,merchantId:l.merchant_id||identity.merchantId}))) ]);});
+  await database().execute('UPDATE sales_connection SET identity=?,verified_at=UTC_TIMESTAMP(3) WHERE id=1 AND merchant_id=?',[JSON.stringify(identity),identity.merchantId]);
   if(!identity.scopes.includes('ITEMS_READ'))fail('SQUARE_ITEMS_READ_REQUIRED');
   const started=Date.now(),objects:CatalogObject[]=[],seen=new Set<string>();let cursor:string|undefined,watermark:string|undefined;
   do{
