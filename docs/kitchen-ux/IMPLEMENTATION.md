@@ -21,7 +21,7 @@ Read-only hosted inspection found 14 ready units, zero baking, 13 assigned to th
 
 Existing authenticated API, role checks, optimistic version checks, row locking, idempotency and audit ledger remain authoritative. No schema migration, credential change or new dependency. Keep all checkout, live payment, synthetic hosted fixtures and automatic Square deduction flags disabled. Only staging.punaempanadas.ca may be updated.
 
-Before deploying, create a fresh Hostinger backup and retain the prior source ZIP. Roll back application files by redeploying the prior verified source archive with existing environment values; do not restore an old database over subsequent ledger events. This release does not require a database rollback.
+Retain the prior verified source ZIP and inspect the native Hostinger backup before deploying. A new manual backup was attempted but unavailable because of Hostinger's 24-hour cooldown; the previous native backup remained available. This release changes application files only. Roll back by redeploying the prior verified source archive with existing environment values; do not restore an old database over subsequent ledger events. This release does not require a database rollback. See DEPLOYMENT.md and REPORT.md for the completed acceptance and backup limitations.
 
 ## Validation plan and limitations
 
