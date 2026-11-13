@@ -97,27 +97,18 @@ jobs:
           PUNA_CI_DB_CONTAINER: ${{ job.services.mariadb.id }}
         run: |
           cd "$RUNNER_TEMP/puna-candidate"
-          timeout 600s node tests/integration.mjs
+          mkdir -p test-artifacts/build-evidence
+          set -o pipefail
+          timeout 600s node tests/integration.mjs | tee test-artifacts/build-evidence/integration.log
       - name: Collect synthetic screenshots
         if: ${{ always() }}
         run: |
           if [ -d "$RUNNER_TEMP/puna-candidate/test-artifacts/screenshots" ]; then
             cp -R "$RUNNER_TEMP/puna-candidate/test-artifacts/screenshots" test-artifacts/
           fi
-      - name: Retain selected synthetic review images in text evidence
-        if: ${{ always() }}
-        run: |
-          python3 - <<'PYIMAGE'
-          import pathlib, base64
-          names=['studio-photo-tablet.png','studio-weekly-tablet.png','studio-owner-mobile.png','studio-owner-desktop.png','studio-bag-desktop.png','studio-menu-desktop.png','studio-menu-mobile.png','unified-menu-before-desktop.png','unified-menu-before-mobile.png','d1-08-mixed-checkout.png','inventory-kitchen-tablet.png','dashboard-chart-before.png','dashboard-chart-after.png','dashboard-cards-before.png','dashboard-cards-after.png','inventory-batch-tools.png','inventory-kitchen-overview.png','inventory-display-panel-desktop.png','inventory-display-panel-mobile.png','inventory-baseline-mobile-hero.png','inventory-preserved-mobile-hero.png','inventory-baseline-desktop-story.png','inventory-preserved-desktop-story.png','inventory-baseline-desktop-hero.png','inventory-preserved-desktop-hero.png','inventory-baseline-mobile-story.png','inventory-preserved-mobile-story.png']
-          for name in names:
-              path=pathlib.Path('test-artifacts/screenshots')/name
-              if not path.exists(): continue
-              raw=path.read_bytes()
-              if len(raw)>2000000: continue
-              value=base64.b64encode(raw).decode()
-              for n in range(0,len(value),8000): print('PUNA_VISUAL '+name+' '+str(n)+' '+value[n:n+8000])
-          PYIMAGE
+          if [ -d "$RUNNER_TEMP/puna-candidate/test-artifacts/build-evidence" ]; then
+            cp -R "$RUNNER_TEMP/puna-candidate/test-artifacts/build-evidence" test-artifacts/
+          fi
       - name: Upload synthetic visual review only
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
