@@ -1,0 +1,327 @@
+Final application acceptance: GitHub commit 4f46c5d37cb9b45e851f0cd932d9a0c382dd6607
+Local identical tree: d5b93fd5d2f267f05ccf87007814f665641cc4c5
+Integration run 43367213003 / job 131694476175: success
+Staging build checks run 43367218865: success
+Synthetic fixtures only. Provider simulator acceptance is not live Square acceptance.
+
+2026-11-13T04:43:38.2255496Z PASS domain integer cents and line-specific taxes
+2026-11-13T04:43:38.2259617Z PASS domain unknown stock and incomplete tax cannot be ordered
+2026-11-13T04:43:38.2261881Z PASS domain all future commitments reduce available stock
+2026-11-13T04:43:38.2262341Z PASS domain max order size does not silently split
+2026-11-13T04:43:38.2265987Z PASS domain five remaining accepts five and rejects six
+2026-11-13T04:43:38.2268206Z PASS domain server cutoff rejects exact cutoff and past times
+2026-11-13T04:43:38.2277868Z PASS domain Vancouver respects historical DST and current permanent Pacific time
+2026-11-13T04:43:38.2281473Z PASS domain ambiguous or nonexistent local times are refused
+2026-11-13T04:43:38.2290006Z PASS domain 20-piece 30-minute fixture starts pickup at 10:30
+2026-11-13T04:43:38.2308496Z PASS domain preheat packing handoff holidays and downtime constrain service
+2026-11-13T04:43:38.2309251Z PASS domain incomplete source inputs do not produce margins
+2026-11-13T04:43:38.2314993Z PASS domain source total discrepancy stays explicit
+2026-11-13T04:43:38.2315513Z RESULT 12 synthetic domain checks passed
+2026-11-13T04:43:38.6503941Z PASS sales domain dedup compares all 33 fields before projection and preserves legitimate repeated lines
+2026-11-13T04:43:38.6525115Z PASS sales domain duplicate files, overlapping exports, byte hashes and stable manifest identity
+2026-11-13T04:43:38.6530956Z PASS sales domain RFC4180 commas, quotes, embedded newlines and source record references
+2026-11-13T04:43:38.6538048Z PASS sales domain monetary exactness and refund signs do not deduct returns twice
+2026-11-13T04:43:38.6544627Z PASS sales domain malformed money and missing fields are rejected without private content
+2026-11-13T04:43:38.6555478Z PASS sales domain Vancouver source date survives UTC boundary, ambiguous clocks and invalid dates
+2026-11-13T04:43:38.6565590Z PASS sales domain API line totals, order tips and source privacy remain at their own grain
+2026-11-13T04:43:38.6572063Z PASS sales domain itemized returns reconcile, unsupported charges fail closed, payment refund is separate
+2026-11-13T04:43:38.6576293Z PASS sales domain cash rounding stays outside item revenue and Cube serialization rounds only exact cents
+2026-11-13T04:43:38.6577988Z RESULT 9 synthetic sales domain checks passed
+2026-11-13T04:43:39.0347000Z PASS Vancouver midnight does not follow UTC date
+2026-11-13T04:43:39.0368266Z PASS fall day has 25 distinct offset-aware hours
+2026-11-13T04:43:39.0382351Z PASS spring day has 23 actual hours
+2026-11-13T04:43:39.0384003Z PASS ongoing week compares matching local elapsed days and time
+2026-11-13T04:43:39.0385252Z PASS ongoing day compares same weekday previous week
+2026-11-13T04:43:39.0388033Z PASS month does not silently compare 31 elapsed days with 28
+2026-11-13T04:43:39.0389798Z PASS complete months use actual calendar boundaries
+2026-11-13T04:43:39.0391329Z PASS missing rows stay unavailable, observed zero is preserved
+2026-11-13T04:43:39.0392590Z PASS net includes returns once and AOV uses distinct ledger transactions
+2026-11-13T04:43:39.0394910Z PASS ambiguous partial-period figures fail closed
+2026-11-13T04:43:39.0396583Z PASS zero, negative and unavailable baselines do not fabricate percentages
+2026-11-13T04:43:39.0397178Z 11 dashboard domain checks passed
+2026-11-13T04:43:39.3869073Z PASS kitchen domain heartbeat expiry does not close a verified business session
+2026-11-13T04:43:39.3870034Z PASS kitchen domain an unattended but connected screen cannot extend the stock-review deadline
+2026-11-13T04:43:39.3870848Z PASS kitchen domain a heartbeat cannot override blocked stock confidence
+2026-11-13T04:43:39.3871652Z PASS kitchen domain ordinary expiry never releases pending uncertain paid or counter reservations
+2026-11-13T04:43:39.3877430Z PASS kitchen domain physical stock and commitments are separate from channel free capacity
+2026-11-13T04:43:39.3879224Z PASS kitchen domain wastage below a commitment creates a shortage instead of negative availability
+2026-11-13T04:43:39.3880295Z PASS kitchen domain handover reduces physical and commitment once leaving free availability unchanged
+2026-11-13T04:43:39.3881690Z PASS kitchen domain a different batch does not satisfy or inherit an order commitment
+2026-11-13T04:43:39.3882672Z PASS kitchen domain late or delayed commitments block open state while explicit Closed remains closed
+2026-11-13T04:43:39.3883979Z RESULT 9 kitchen domain checks passed
+2026-11-13T04:43:39.7730611Z PASS live inventory display subtraction leaves held food intact and removes free truck food
+2026-11-13T04:43:39.7732269Z PASS live inventory all-held display cannot be decremented or become negative
+2026-11-13T04:43:39.7733029Z PASS live inventory one-tap counted food becomes ready once
+2026-11-13T04:43:39.7733944Z PASS live inventory oven adjustments never change ready food
+2026-11-13T04:43:39.7734941Z PASS live inventory invalid deltas and overflow cannot enter ledger
+2026-11-13T04:43:39.7736113Z PASS live inventory elapsed oven timer stays informational
+2026-11-13T04:43:39.7736784Z PASS live inventory timer rounds up and handles next-day batches
+2026-11-13T04:43:39.7742832Z PASS live inventory Square variations map explicit pack quantities
+2026-11-13T04:43:39.7745731Z PASS live inventory unmapped and fractional Square lines fail closed
+2026-11-13T04:43:39.7747810Z PASS live inventory incomplete Square orders cannot consume food
+2026-11-13T04:43:39.7748846Z PASS live inventory Square retry delta is zero
+2026-11-13T04:43:39.7749654Z PASS live inventory Square later revision consumes only additional units
+2026-11-13T04:43:39.7750238Z PASS live inventory refund or cancellation never restocks food automatically
+2026-11-13T04:43:39.7751239Z PASS live inventory invalid provider versions and pack counts are rejected
+2026-11-13T04:43:39.7754697Z PASS live inventory device lease and stock confidence have independent boundaries
+2026-11-13T04:43:39.7755467Z RESULT 15 live inventory checks passed
+2026-11-13T04:43:40.1236089Z PASS chart missing values split segments without interpolating or manufacturing zero
+2026-11-13T04:43:40.1237216Z PASS chart invalid observations are gaps
+2026-11-13T04:43:40.1239630Z PASS chart all zero and missing domains are finite and nondegenerate
+2026-11-13T04:43:40.1240311Z PASS chart negative returns and positive sales share a true zero baseline
+2026-11-13T04:43:40.1241035Z PASS chart exact fractional units and unsmoothed values survive plotting
+2026-11-13T04:43:40.1243497Z PASS chart scale encloses every supplied finite value
+2026-11-13T04:43:40.1243952Z RESULT 6 chart checks passed
+2026-11-13T04:43:40.4998455Z PASS service ready order includes preparation buffer and explicit range
+2026-11-13T04:43:40.4999481Z PASS service mixed order follows latest required batch plus buffer
+2026-11-13T04:43:40.5000239Z PASS service full batch is supported up to configured unit capacity
+2026-11-13T04:43:40.5000896Z PASS service capacity moves the entire order to the next window
+2026-11-13T04:43:40.5001556Z PASS service order count capacity applies independently of unit capacity
+2026-11-13T04:43:40.5005227Z PASS service checkout cannot silently move a quoted window after a competing hold
+2026-11-13T04:43:40.5005914Z PASS service delay invalidates a quote that no longer fits
+2026-11-13T04:43:40.5006552Z PASS service window must finish before closing and capacity is bounded
+2026-11-13T04:43:40.5009142Z PASS service sleep navigation and absent heartbeat leave business open
+2026-11-13T04:43:40.5011019Z PASS service closing time is enforced without a browser or scheduler
+2026-11-13T04:43:40.5011698Z PASS service manual pause is persistent and independent of fresh inventory
+2026-11-13T04:43:40.5012444Z PASS service pre-migration stock never implicitly becomes physically verified
+2026-11-13T04:43:40.5013237Z PASS service confidence loss blocks new orders but leaves stored business mode alone
+2026-11-13T04:43:40.5014046Z PASS service public deadline is the earlier of review and closing
+2026-11-13T04:43:40.5014499Z RESULT 14 service domain checks passed
+2026-11-13T04:43:40.6024059Z ok 1 - sandbox identity requires exact environment application seller location country currency and minimal scopes
+2026-11-13T04:43:40.6030196Z ok 2 - payment normalization rejects amount currency location reference and unknown result mismatches
+2026-11-13T04:43:40.6034305Z ok 3 - recipient allowlist defaults to deny and rejects wildcards lists display names and newline injection
+2026-11-13T04:43:40.6038172Z ok 4 - relay requires enabled verified sandbox exact HTTPS path and bounded expiry
+2026-11-13T04:43:40.6095807Z ok 5 - private config must be owner-only non-symlink and outside repository
+2026-11-13T04:43:40.6734490Z     ok 1 - unrelated application admin fixture optimizer and arbitrary query routes are unavailable
+2026-11-13T04:43:40.6913999Z     ok 2 - GET and wrong content encoding/type are rejected
+2026-11-13T04:43:40.6942058Z     ok 3 - invalid signature and wrong registered URL are rejected
+2026-11-13T04:43:40.7085802Z     ok 4 - wrong merchant location event type and invalid JSON are rejected
+2026-11-13T04:43:40.7094230Z     ok 5 - oversized callback is bounded before JSON parsing
+2026-11-13T04:43:40.7636289Z     ok 6 - valid signed callback acknowledges only after minimized durable persistence
+2026-11-13T04:43:40.7742830Z     ok 7 - duplicate and simultaneous delivery create one durable event
+2026-11-13T04:43:40.7745478Z     ok 8 - same event identity with changed content is refused
+2026-11-13T04:43:40.7803972Z     ok 9 - delayed and out-of-order signed events enqueue without applying client payment state
+2026-11-13T04:43:40.7914401Z     ok 10 - restart retains duplicate suppression and provider retry can be acknowledged
+2026-11-13T04:43:40.7918134Z     ok 11 - forwarded paths and hosts cannot turn listener into an application proxy
+2026-11-13T04:43:40.7920351Z ok 6 - callback listener boundaries and restart persistence
+2026-11-13T04:43:41.1383139Z ok 7 - Zod 3 baseline visits oversize elements; guarded schema rejects before any element work
+2026-11-13T04:43:41.1386786Z ok 8 - valid boundaries and transformations retain output and ordinary element error paths
+2026-11-13T04:43:41.1389992Z ok 9 - aggregate budget rejects nested amplification before element validation
+2026-11-13T04:43:41.1392968Z ok 10 - excess depth and cyclic input fail without recursive validation
+2026-11-13T04:43:41.1396948Z ok 11 - cart and tax schemas preserve accepted inputs and reject oversize or duplicate collections
+2026-11-13T04:43:41.1400181Z ok 12 - reference accepts a full 500 by 40 bounded grid and rejects excessive rows or columns
+2026-11-13T04:43:41.1402962Z ok 13 - batch aggregate budget requires oversized reference batches to be split
+2026-11-13T04:43:41.1406002Z ok 14 - application collection schemas use the reviewed early-bound helper
+2026-11-13T04:43:41.1559825Z # tests 25
+2026-11-13T04:43:41.1560251Z # pass 25
+2026-11-13T04:43:41.1560454Z # fail 0
+2026-11-13T04:43:46.9661658Z ✓ Running next.config.mjs took 12ms
+2026-11-13T04:43:59.7962678Z ✓ Compiled successfully in 10.5s
+2026-11-13T04:44:05.6614756Z   Finished TypeScript in 5.7s ...
+2026-11-13T04:44:23.1270123Z PASS additive migration reruns preserve the schema
+2026-11-13T04:44:23.2230061Z PASS migration ledger cannot hide a missing expected table
+2026-11-13T04:44:23.7652648Z ✓ Running next.config took 3ms
+2026-11-13T04:44:24.2150617Z PASS anonymous API and workspace denied
+2026-11-13T04:44:24.2294115Z PASS owner setup rejects bad token and missing/foreign origin
+2026-11-13T04:44:24.3013649Z PASS owner setup is single-use even with concurrent requests
+2026-11-13T04:44:24.3557990Z PASS login creates secure hashed session
+2026-11-13T04:44:24.3785081Z PASS login throttles repeated failed attempts
+2026-11-13T04:44:24.3891985Z PASS server denies missing, foreign and insecure mutation origins
+2026-11-13T04:44:24.4763697Z PASS staff cannot read or mutate products
+2026-11-13T04:44:24.4826834Z PASS invalid fields do not write data or audit
+2026-11-13T04:44:24.4944286Z PASS save persists without implicit product confirmation
+2026-11-13T04:44:24.5046005Z PASS explicit confirmation persists with transactional audit
+2026-11-13T04:44:24.5208414Z PASS concurrent edits yield one success and one conflict
+2026-11-13T04:44:24.5586115Z PASS failed audit insert rolls product transaction back
+2026-11-13T04:44:24.6023486Z PASS expired sessions cannot read or write
+2026-11-13T04:44:24.6437424Z PASS logout revokes session and replay is denied
+2026-11-13T04:44:24.6989116Z PASS public and dashboard share one catalogue without private fields
+2026-11-13T04:44:24.7253536Z PASS workers denied owner routes, account creation and old mutation surfaces
+2026-11-13T04:44:24.8269593Z PASS second owner provisioned through authenticated audited API
+2026-11-13T04:44:24.8579467Z PASS shared website content uses conflict detection and audit rollback
+2026-11-13T04:44:24.8617084Z PASS disabled account loses existing session immediately
+2026-11-13T04:44:25.1276213Z ✓ Running next.config took 3ms
+2026-11-13T04:44:25.4660472Z PASS bootstrap removed on restart; synthetic ordering explicitly enabled only in CI
+2026-11-13T04:44:25.5332896Z PASS test order requires session and origin, prices come from shared database
+2026-11-13T04:44:25.6278433Z PASS worker status transitions are restricted, versioned and audited atomically
+2026-11-13T04:44:25.6515411Z PASS checkout origin and total tampering are denied
+2026-11-13T04:44:25.6813876Z PASS unknown stock and unverified product taxes block checkout
+2026-11-13T04:44:25.7178474Z PASS concurrent holds share all-flavour capacity atomically
+2026-11-13T04:44:25.7427843Z PASS same checkout retry is idempotent but changed cart conflicts
+2026-11-13T04:44:25.7513843Z PASS all-future holds reduce earlier-slot stock
+2026-11-13T04:44:25.7814828Z PASS expired definite unpaid hold releases once
+2026-11-13T04:44:25.8320515Z PASS only verified capture enters worker queue and receipt is scoped
+2026-11-13T04:44:25.8378143Z PASS duplicate payment submission does not capture twice
+2026-11-13T04:44:25.8614525Z PASS definite card decline releases its reservation
+2026-11-13T04:44:25.8947581Z PASS capture with lost response retains hold pending reconciliation
+2026-11-13T04:44:25.9041457Z PASS worker cannot change owner settings, stock, refunds or preferences
+2026-11-13T04:44:25.9402635Z PASS batch manifest is frozen and collection cannot deduct twice
+2026-11-13T04:44:25.9725577Z PASS new checkout audit failure rolls all reservations back
+2026-11-13T04:44:25.9835460Z PASS Google unconfigured and uninvited access stay closed
+2026-11-13T04:44:25.9940239Z PASS workspace preference is per-owner and does not change permissions
+2026-11-13T04:44:26.0883837Z PASS durable job reconciles captured payment after lost response without a second charge
+2026-11-13T04:44:26.1308109Z PASS capture reconciled after cutoff becomes an exception and stays out of kitchen queue
+2026-11-13T04:44:26.2478758Z PASS signed duplicate and stale webhooks reconcile provider truth while invalid signatures are denied
+2026-11-13T04:44:26.7308507Z PASS owner-requested synthetic Sandbox refund never automatically restocks food
+2026-11-13T04:44:26.7875690Z PASS payment capture with local audit failure is recovered by durable reconciliation
+2026-11-13T04:44:26.8110332Z PASS source import preserves drafts and is idempotent
+2026-11-13T04:44:26.8189703Z PASS source import refuses to overwrite owner edits and canonical duplicates
+2026-11-13T04:44:26.8231104Z PASS workers cannot read or write private recipe/cost records
+2026-11-13T04:44:26.8373508Z PASS recipe cost remains incomplete until all verified inputs exist
+2026-11-13T04:44:26.8602556Z PASS production needs counted ingredients and a counted output location
+2026-11-13T04:44:26.8691941Z PASS production audit failure rolls ingredient and output changes back
+2026-11-13T04:44:26.8848168Z PASS draft website content stays private before explicit staging publication
+2026-11-13T04:44:26.8896943Z PASS historical reports exclude synthetic sales and separate taxes from revenue
+2026-11-13T04:44:27.1082348Z PASS private recovery is owner-issued, one-time and revokes old sessions without changing role
+2026-11-13T04:44:27.1293767Z PASS sales denies anonymous, staff and foreign-origin controls
+2026-11-13T04:44:27.1521697Z PASS preview keeps only minimized data, hashes and source rows without publishing
+2026-11-13T04:44:27.1784844Z PASS atomic repeat import preserves legitimate repeated lines and audit history
+2026-11-13T04:44:27.2061526Z PASS overlapping exports add only new 33-field rows and retain all provenance
+2026-11-13T04:44:27.2182459Z PASS malformed rows block the batch instead of silently importing a partial total
+2026-11-13T04:44:27.2566247Z PASS audit failure rolls back all sales and retry resumes the saved batch
+2026-11-13T04:44:27.2752962Z PASS mapping is versioned and never changes catalogue or stock
+2026-11-13T04:44:27.2996122Z PASS private reference import is hashed, versioned, idempotent and cannot drive production
+2026-11-13T04:44:27.3250130Z PASS Square OAuth validates owner state and stores only encrypted credentials
+2026-11-13T04:44:27.3518657Z PASS verified Reporting API aggregates remain separate from accepted item facts
+2026-11-13T04:44:27.4444292Z PASS bounded refresh checkpoints hold CSV overlap and import non-overlap once
+2026-11-13T04:44:27.4690849Z PASS owner source choice replaces the entire matched transaction without doubling sales
+2026-11-13T04:44:27.5168853Z PASS late API changes retain old evidence and reopen a previous source decision
+2026-11-13T04:44:27.5475998Z PASS later CSV import quarantines previously included API facts and exposes linked totals
+2026-11-13T04:44:27.5852312Z PASS revoked Square credentials fail visibly without changing accepted sales
+2026-11-13T04:44:27.6096973Z PASS scheduled bearer authorization continues the persisted run without an owner session
+2026-11-13T04:44:27.6904579Z PASS completed refresh advances its watermark while backfills and replays preserve it
+2026-11-13T04:44:27.7135597Z PASS dashboard reads the same included ledger without changing records or audit
+2026-11-13T04:44:27.7325292Z PASS dashboard denies staff, validates filters, and never calls empty periods zero
+2026-11-13T04:44:27.7550778Z PASS product drill-down filters the reconciled ledger without reallocating refunds or tips
+2026-11-13T04:44:27.7820923Z PASS customer records and notes are restricted to owners
+2026-11-13T04:44:27.7859345Z PASS empty real customer records never invent sandbox customers
+2026-11-13T04:44:27.8305964Z PASS customer grouping uses normalized email and complete paid history
+2026-11-13T04:44:27.8422761Z PASS sandbox customers cannot be merged with real customers or notes
+2026-11-13T04:44:27.8616108Z PASS customer notes persist privately and reject concurrent first saves
+2026-11-13T04:44:27.8817475Z PASS customer note edits use optimistic versions and transactional audit
+2026-11-13T04:44:27.9098025Z PASS missing note storage leaves customer history available without pretending to save
+2026-11-13T04:44:27.9607789Z PASS owner order book separates Sandbox records and omits private receipt credentials
+2026-11-13T04:44:28.1816111Z ✓ Running next.config took 2ms
+2026-11-13T04:44:28.7265504Z PASS Google signed tokens still require an invitation or explicit existing-account linking
+2026-11-13T04:44:28.8120951Z PASS invited Google worker gets restricted access and revocation invalidates the session
+2026-11-13T04:44:30.1189485Z PASS browser login and explicit product edit persist after refresh
+2026-11-13T04:44:30.3859019Z PASS mobile editor remains usable without horizontal overflow
+2026-11-13T04:44:31.4665070Z PASS sales and source recipe views show synthetic evidence on desktop and mobile
+2026-11-13T04:44:34.8790682Z PASS dashboard tabs, metric selection, sorting and product detail work responsively
+2026-11-13T04:44:35.2417792Z PASS order workspace starts with real empty state and opens existing Sandbox order details
+2026-11-13T04:44:35.7952573Z PASS order refresh closes details when the order leaves the current filter
+2026-11-13T04:44:36.5932412Z PASS customer history stays scoped and owner notes persist after reload
+2026-11-13T04:44:37.6390155Z PASS browser edits staging website settings and sees them on the public homepage
+2026-11-13T04:44:38.3462138Z PASS second owner uses the same login and grouped sidebar navigation
+2026-11-13T04:44:40.8294347Z PASS browser food-truck login is restricted and legacy test orders never enter paid queue
+2026-11-13T04:44:41.3361847Z PASS customer bag persists without placing unpaid orders
+2026-11-13T04:44:41.3678972Z PASS staging metadata, genuine branded 404 and sitemap protect private routes
+2026-11-13T04:44:47.3712578Z PASS public design, artwork and navigation render on desktop and mobile with synthetic catalogue
+2026-11-13T04:44:47.6789576Z PASS sidebar navigation and browser history preserve an unsaved website edit
+2026-11-13T04:44:49.3345922Z PASS capture synthetic desktop, laptop, tablet and mobile review screenshots
+2026-11-13T04:44:50.0978609Z PASS owner import screen previews, imports drafts and refreshes both editors
+2026-11-13T04:44:50.4442567Z PASS imported product publishes separately and owner description edits remain protected
+2026-11-13T04:44:50.7655220Z PASS browser workspace home and logout work
+2026-11-13T04:44:50.7905089Z PASS feature-off kitchen requires no new schema and keeps public preview absent
+2026-11-13T04:44:52.4995422Z PASS numbered kitchen migration rerun preserves the initial state
+2026-11-13T04:44:52.7394247Z ✓ Running next.config took 2ms
+2026-11-13T04:44:53.5233862Z PASS kitchen candidate reruns safely and refuses a missing table behind its ledger
+2026-11-13T04:44:53.5654106Z PASS kitchen denies anonymous and foreign-origin mutations; staff cannot correct or change policy
+2026-11-13T04:44:53.6508190Z PASS stock review requires a recent actor-specific read and preserves the business mode
+2026-11-13T04:44:53.6957079Z PASS ordinary hold policy defaults to five minutes and is owner-configurable
+2026-11-13T04:44:53.7901119Z PASS staff one-tap counts, replay protection and negative-stock prevention
+2026-11-13T04:44:53.9578121Z PASS multiple oven batches support plus minus ETA partial transfer and cancellation
+2026-11-13T04:44:53.9880053Z PASS published cabinet visibility is independent of the disabled ordering flag
+2026-11-13T04:44:54.0247983Z PASS Start Baking is server-timed and elapsed estimates do not mark food ready
+2026-11-13T04:44:54.0415809Z PASS new oven reservations are rejected even after the timer elapsed
+2026-11-13T04:44:54.1895247Z PASS partial readiness preserves total physical units and the reserved actual batch
+2026-11-13T04:44:54.2644805Z PASS transfers cannot take held or paid capacity and move only one channel budget
+2026-11-13T04:44:54.2968506Z PASS all-or-nothing synthetic basket rolls back when another batch cannot fit
+2026-11-13T04:44:54.4142922Z PASS concurrent online and walk-in requests serialize without negative stock
+2026-11-13T04:44:54.4878934Z PASS competing transfer and reservation cannot both spend the same free units
+2026-11-13T04:44:54.5908123Z PASS walk-in reserve then handover consumes once without a second availability deduction
+2026-11-13T04:44:54.7022271Z PASS wastage affecting a paid commitment records shortage, protects order and pauses online
+2026-11-13T04:44:54.8471314Z PASS delays preserve pickup commitments and stop new online allocations when promises conflict
+2026-11-13T04:44:55.0517593Z PASS expired ordinary holds release by server time; pending, uncertain, paid and counter stay protected
+2026-11-13T04:44:55.0609852Z PASS public availability is read-only and strips allocation, staff and private identifiers
+2026-11-13T04:44:55.0827890Z PASS expired browser heartbeat leaves verified session and stock available
+2026-11-13T04:44:55.1630970Z PASS expired stock review pauses intake even with current heartbeat and retains obligations
+2026-11-13T04:44:55.2807954Z PASS session closes by server clock and reopening requires a recent physical review
+2026-11-13T04:44:55.4366205Z PASS service policy bounds permissions and extensions never silently extend stock confidence
+2026-11-13T04:44:55.5826153Z PASS reconnect refuses an old version; takeover invalidates the former heartbeat owner
+2026-11-13T04:44:55.6926699Z PASS synthetic paid handover requires set-aside and never deducts availability twice
+2026-11-13T04:44:55.7919385Z PASS late successful fixture payment creates an exception without stealing released capacity
+2026-11-13T04:44:55.7951469Z PASS kitchen changes are audited and leave legacy stock, orders and reporting unchanged
+2026-11-13T04:44:56.5037337Z PASS tablet connects explicitly and exposes Ready in Display and In Oven
+2026-11-13T04:44:56.9344367Z PASS one-tap display controls persist and expose accessible labels
+2026-11-13T04:44:57.3480499Z PASS oven controls create a batch, adjust quantities and transfer only confirmed food
+2026-11-13T04:44:57.8032585Z PASS touchscreen supports multiple batches, revised ETA and cancellation without changing ready food
+2026-11-13T04:44:58.3007099Z PASS Batch tools transfer and walk-in reserve preserve physical stock and explain the next step
+2026-11-13T04:44:59.4849419Z PASS navigation and an expired browser lease retain stock and the persistent Open session
+2026-11-13T04:45:00.3348253Z PASS tablet and phone board fit with large controls
+2026-11-13T04:45:00.6611638Z PASS offline writes are never queued and reconnect reads authoritative stock
+2026-11-13T04:45:03.2004107Z PASS one original menu shows ready and baking quantities and a non-reserving draft bag
+2026-11-13T04:45:03.2866818Z PASS expired staff session blocks controls and offers sign-in without retrying stock writes
+2026-11-13T04:45:03.5433125Z ✓ Running next.config took 2ms
+2026-11-13T04:45:03.9257341Z PASS feature-off rollback preserves kitchen commitments and legacy access without destructive rollback
+2026-11-13T04:45:04.2894612Z ✓ Running next.config took 2ms
+2026-11-13T04:45:05.1120380Z PASS D1 additive candidate reruns and refuses missing schema behind its ledger
+2026-11-13T04:45:05.5263512Z PASS A ready Ham & Cheese plus Ají Chicken uses configured prices and one atomic five-minute hold
+2026-11-13T04:45:05.5664473Z PASS duplicate hold submission returns the same order without extending expiry or creating another allocation
+2026-11-13T04:45:05.5916071Z PASS payment cannot be asserted by the customer or a worker fixture button
+2026-11-13T04:45:06.0419013Z PASS authoritative fake success commits both items and payment alone does not mark Ready
+2026-11-13T04:45:06.1501637Z PASS packing requires physical set-aside and queues one confirmation and Ready capture
+2026-11-13T04:45:06.3030074Z PASS scan is read-only and F competing worker handovers commit exactly once without a second availability deduction
+2026-11-13T04:45:06.6823281Z PASS mixed ready and oven order preserves exact stages and one pickup window through partial readiness
+2026-11-13T04:45:06.8181828Z PASS all-or-nothing reserve creates nothing when Ají disappears after quote
+2026-11-13T04:45:06.9500174Z PASS E two customers competing for the last unit produce exactly one hold
+2026-11-13T04:45:07.0891296Z PASS C timeout retains stock and refuses another payment attempt
+2026-11-13T04:45:07.3335549Z ✓ Running next.config took 2ms
+2026-11-13T04:45:08.0544979Z PASS C/I asleep tablet survives backend restart while explicit confidence loss contains new orders
+2026-11-13T04:45:08.0930161Z PASS duplicate and out-of-order provider events never downgrade verified payment or resend confirmation
+2026-11-13T04:45:08.3268729Z PASS D definite failure and decline release stock exactly once
+2026-11-13T04:45:08.9314687Z PASS wrong amount currency merchant and location cannot become paid
+2026-11-13T04:45:09.1568811Z PASS duplicate provider payment identity across orders cannot create a second paid order
+2026-11-13T04:45:10.4165680Z PASS payment adapter waits outside the commerce lock and durable attempt blocks double-click payment
+2026-11-13T04:45:10.8919804Z ✓ Running next.config took 3ms
+2026-11-13T04:45:11.3517433Z PASS G failed email retries once without affecting payment stock or fulfilment and captures remain idempotent
+2026-11-13T04:45:11.8496251Z PASS obsolete Ready outbox is suppressed after a paid stock shortage
+2026-11-13T04:45:12.3111461Z PASS delayed oven commitment updates one pickup window and requires explicit manager review
+2026-11-13T04:45:12.6334128Z PASS customer status omits internal identities and horizontal token access is denied
+2026-11-13T04:45:13.0031764Z PASS QR expiry revocation role checks and manual recovery never bypass paid packed collection guards
+2026-11-13T04:45:13.0339910Z PASS CSRF price batch readiness and offer tampering are rejected
+2026-11-13T04:45:13.2244366Z PASS hold hoarding renewal and repeated creation are bounded
+2026-11-13T04:45:13.6645789Z PASS H legitimate expiry followed by a later payment never steals another customer’s final unit
+2026-11-13T04:45:13.7948206Z PASS late success can recover the whole exact original basket without changing its pickup promise
+2026-11-13T04:45:14.1845807Z ✓ Running next.config took 2ms
+2026-11-13T04:45:15.1053700Z ✓ Running next.config took 2ms
+2026-11-13T04:45:15.4859712Z PASS intake containment preserves existing status packing notifications and safe handover while Closed
+2026-11-13T04:45:15.5111467Z PASS fixture capability and external-host requests cannot reach local adapters
+2026-11-13T04:45:16.0556620Z PASS two customers cannot reserve the same complete oven batch and cancellation protects its promises
+2026-11-13T04:45:16.7191909Z PASS multiple batches remain distinct and latest ETA drives an oven-only order
+2026-11-13T04:45:16.9298919Z PASS unpaid oven cancellation releases exact batch while uncertain payment stays protected
+2026-11-13T04:45:17.2389548Z PASS paid partial-oven refund releases baking and quarantines prepared ready units once
+2026-11-13T04:45:17.5826957Z PASS elapsed reserved oven ETA never readies food and public polling surfaces the blocked promise
+2026-11-13T04:45:17.5856638Z PASS legacy orders inventory and reporting fingerprints remain unchanged by D1 orders
+2026-11-13T04:45:19.0784628Z PASS D1 browser A ready checkout uses configured catalogue then reserves and pays through the customer UI
+2026-11-13T04:45:20.4573251Z PASS D1 browser worker explicitly checks items sets aside and packs before Ready appears
+2026-11-13T04:45:21.8268673Z PASS D1 browser scanner camera is opt-in scoped and simulated decoding only inspects until explicit handover
+2026-11-13T04:45:23.3560464Z PASS D1 browser unified menu selects a specific oven batch and presents one mixed pickup window
+2026-11-13T04:45:23.7635229Z PASS D1 browser held order survives refresh and resumes the same payment attempt
+2026-11-13T04:45:24.1924205Z PASS D1 browser C uncertain payment keeps stock and tells customer not to pay again including on refresh
+2026-11-13T04:45:24.9404571Z PASS D1 browser manual fallback and offline handover never replay a stock write
+2026-11-13T04:45:24.9409688Z PASS D1 browser routes render without client exceptions
+2026-11-13T04:45:25.1714570Z ✓ Running next.config took 2ms
+2026-11-13T04:45:25.5778757Z PASS D1 feature-off retains schema and original checkout while local fixtures refuse all actions
+2026-11-13T04:45:25.7953642Z ✓ Running next.config took 3ms
+2026-11-13T04:45:26.3617196Z PASS POS rejects invalid signatures and merchant identity without changing stock
+2026-11-13T04:45:26.3991373Z PASS POS completed sale and concurrent duplicate webhooks deduct exactly once
+2026-11-13T04:45:26.4371659Z PASS POS higher versions deduct only additional units and refunds do not restock
+2026-11-13T04:45:26.4742952Z PASS POS unknown variants and short multi-product orders cannot partially deduct
+2026-11-13T04:45:26.4877579Z PASS POS ignores incomplete and pre-cutover sales; wrong location is rejected
+2026-11-13T04:45:26.5118047Z PASS POS audit failure rolls stock back and retry can safely recover
+2026-11-13T04:45:26.7350295Z ✓ Running next.config took 2ms
+2026-11-13T04:45:27.1015935Z PASS POS feature-off rejects webhook replay and preserves the stock ledger
+2026-11-13T04:45:27.6006508Z PASS isolated synthetic restore preserves counts, definitions, indexes and foreign keys
+2026-11-13T04:45:27.6007359Z PASS approved hero and Story screenshots remain unchanged
+2026-11-13T04:45:27.6008295Z RESULT 193 integration checks passed; synthetic data only; no deployment; private hosted-data restore was not exercised.

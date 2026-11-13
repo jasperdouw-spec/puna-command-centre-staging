@@ -51,4 +51,4 @@ The D1 checkout/provider remains restricted to loopback, disposable synthetic da
 
 ## Validation status
 
-Implementation and local domain/type/build validation are in progress. Final CI, hosted deployment, screenshots, checksum receipts and physical-device limitations will be appended to the release report. Do not treat the previous release's test totals as validation of this release.
+Final application CI at source tree `d5b93fd5d2f267f05ccf87007814f665641cc4c5` passed 193 disposable integration checks, 76 domain checks and 25 validation/provider-boundary checks, with typecheck and Hostinger-compatible production build. The long-description mobile layout, separate business/availability labels and disabled readiness actions before physical review are covered. See CI-RELEASE.txt and RELEASE-REPORT.md for exact runs, hosted acceptance and physical-device limitations. Earlier CI files are retained checkpoints, not substituted for final acceptance.
