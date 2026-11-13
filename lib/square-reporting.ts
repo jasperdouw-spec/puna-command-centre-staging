@@ -9,6 +9,7 @@ import {hash,SalesError} from './sales-model';
 import {reportingCents} from './square-reporting-model';
 
 export const REPORTING_SCOPES=['MERCHANT_PROFILE_READ','ORDERS_READ','PAYMENTS_READ','REPORTING_READ'];
+export const SQUARE_READ_SCOPES=[...REPORTING_SCOPES,'ITEMS_READ'];
 const BASE='https://connect.squareup.com';
 const VERSION='2026-09-16';
 const deadline=new AsyncLocalStorage<number>();
@@ -47,7 +48,7 @@ export async function verifySquareIdentity(token:string){
  const cfg=reportingConfig(),status=await squareRead('/oauth2/token/status',token,{});
  if(status.merchant_id!==cfg.merchant||status.client_id!==cfg.appId)throw new SalesError('SQUARE_MERCHANT_MISMATCH',409);
  const required=REPORTING_SCOPES.filter(s=>s!=='REPORTING_READ');
- if(required.some(s=>!status.scopes?.includes(s))||status.scopes.some((s:string)=>!REPORTING_SCOPES.includes(s)))throw new SalesError('SQUARE_READ_SCOPES_REQUIRED',409);
+ if(required.some(s=>!status.scopes?.includes(s))||status.scopes.some((s:string)=>!SQUARE_READ_SCOPES.includes(s)))throw new SalesError('SQUARE_READ_SCOPES_REQUIRED',409);
  const merchant=(await squareRead('/v2/merchants/'+encodeURIComponent(cfg.merchant),token)).merchant;
  if(!merchant||merchant.id!==cfg.merchant||merchant.country!=='CA'||merchant.currency!=='CAD')throw new SalesError('SQUARE_CANADIAN_MERCHANT_REQUIRED',409);
  const response=await squareRead('/v2/locations',token),locations=(response.locations||[]).filter((l:any)=>cfg.locations.includes(l.id));
@@ -61,7 +62,9 @@ export function minimizeMetadata(raw:any){
 export async function beginSquareAuthorization(actor:number){
  const cfg=reportingConfig(),state=randomBytes(32).toString('base64url');
  await salesTransaction(async c=>{await c.execute('DELETE FROM sales_oauth_states WHERE expires_at<UTC_TIMESTAMP(3)');await c.execute('INSERT INTO sales_oauth_states(state_hash,actor_id,expires_at) VALUES(?,?,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 10 MINUTE))',[hash(state),actor]);});
- const scopes=process.env.SQUARE_REPORTING_REQUEST_REPORTING_SCOPE==='false'?REPORTING_SCOPES.filter(s=>s!=='REPORTING_READ'):REPORTING_SCOPES;
+ const [connections]=await database().query<RowDataPacket[]>('SELECT identity FROM sales_connection WHERE id=1');
+ const existing:string[]=connections[0]?JSON.parse(connections[0].identity).scopes:[];
+ const scopes=[...new Set([...(process.env.SQUARE_REPORTING_REQUEST_REPORTING_SCOPE==='false'?REPORTING_SCOPES.filter(s=>s!=='REPORTING_READ'):REPORTING_SCOPES),...existing.filter(s=>SQUARE_READ_SCOPES.includes(s)),'ITEMS_READ'])];
  return {url:'https://connect.squareup.com/oauth2/authorize?'+new URLSearchParams({client_id:cfg.appId,scope:scopes.join(' '),session:'false',state,redirect_uri:cfg.redirect}).toString()};
 }
 export async function finishSquareAuthorization(actor:number,state:string,code:string){

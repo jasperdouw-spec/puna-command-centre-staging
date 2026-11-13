@@ -41,7 +41,7 @@ export async function runSalesChecks({db,request,check,cookie,staffCookie}){
   assert.equal((await post({action:'preview-references',items:[{...item,observedAt:'2025-02-01T00:00:00Z'}]})).data.existing,true);const result=await request('/api/sales?references=true',{cookie});assert.equal(result.data.references.length,1);assert.equal(result.data.references[0].payload.rows[1][1],null);
  });
  await check('Square OAuth validates owner state and stores only encrypted credentials',async()=>{
-  const a=await post({action:'authorize'});assert.equal(a.status,200);const u=new URL(a.data.url);assert.doesNotMatch(u.searchParams.get('scope'),/WRITE|CUSTOMERS/);const callback='/api/sales/square/callback?state='+u.searchParams.get('state')+'&code=synthetic-code';
+  const a=await post({action:'authorize'});assert.equal(a.status,200);const u=new URL(a.data.url);assert.doesNotMatch(u.searchParams.get('scope'),/WRITE|CUSTOMERS/);assert.ok(u.searchParams.get('scope').split(' ').includes('ITEMS_READ'));assert.ok(u.searchParams.get('scope').split(' ').includes('ORDERS_READ'));const callback='/api/sales/square/callback?state='+u.searchParams.get('state')+'&code=synthetic-code';
   assert.match((await request(callback,{cookie:staffCookie})).headers.location,/failed/);assert.match((await request(callback,{cookie})).headers.location,/connected/);assert.match((await request(callback,{cookie})).headers.location,/failed/);
   const [conn]=await db.query('SELECT credentials FROM sales_connection');assert.doesNotMatch(conn[0].credentials,/synthetic-reporting-token|synthetic-reporting-refresh/);assert.equal((await post({action:'inspect'})).data.metadataStatus,'available');
  });

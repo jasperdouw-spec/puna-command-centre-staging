@@ -1,7 +1,7 @@
 name: Isolated application integration
 on:
   push:
-    branches: [review/puna-isolated-integration, codex/puna-phase-b-20261108, codex/live-inventory-20261111, codex/kitchen-ux-20261112, codex/unified-menu-20261112, codex/menu-studio-20261112]
+    branches: [review/puna-isolated-integration, codex/puna-phase-b-20261108, codex/live-inventory-20261111, codex/kitchen-ux-20261112, codex/unified-menu-20261112, codex/menu-studio-20261112, codex/square-catalog-access-20261113]
 permissions:
   contents: read
 concurrency:
