@@ -26,4 +26,4 @@ Originals and derivatives live in additive MariaDB media tables, not the build/r
 
 ## Outstanding validation
 
-Candidate development in progress. Full CI, hosted migration/deployment, real-device acceptance, hosted photo processing and backup readback are not yet complete. Checkout, payments, automatic Square deductions and synthetic fixture flags remain disabled on hosting.
+Migration 011 applied to staging after verified private backup; all five tables created empty and migration checksum matched. Existing products, commerce products, kitchen events/lots/allocations checksums remained identical. Full CI and hosted deployment passed; photo upload, crop processing and persistence across redeployment were verified. Physical-device acceptance remains outstanding. See RELEASE-REPORT.md for exact release, CI and evidence references. Checkout, payments, automatic Square deductions and synthetic fixture flags remain disabled on hosting.

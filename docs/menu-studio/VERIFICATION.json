@@ -1,0 +1,129 @@
+{
+  "date": "2026-11-13",
+  "staging": "https://staging.punaempanadas.ca",
+  "application": {
+    "localCommit": "415648b88ba0e990194a89398f26991cc76ed781",
+    "remoteCommit": "c6fdf3e63c19a82c696ef7975ad551b21f2afbea",
+    "tree": "1d4fa4e1b86c236ef29a0806a86c137c4f2ca70e",
+    "checkoutMode": "disabled",
+    "hostingerStatus": "Completed / Current"
+  },
+  "ci": {
+    "run": 43383907466,
+    "job": 131747777298,
+    "conclusion": "success",
+    "integrationChecks": 208,
+    "boundaryTests": 25,
+    "domainChecks": 76,
+    "photoStudioAssertions": "passed",
+    "recovery": {
+      "tables": 70,
+      "indexes": 208,
+      "foreignKeys": 80,
+      "mediaFiles": 13
+    }
+  },
+  "drive": {
+    "report": "1omzHHLdgP-trdt6Ot_Zzipuytqp8-P2N",
+    "architecture": "1LTXwhjrGRUSEbc-BzwHURAOYnkBYcmRO",
+    "operations": "1YrkvQlanmxBm2ncvZEZPRpMeMgGYXxij",
+    "tablet": "1Oe5NLMJVpFe1GbLY1xVQcd-xMd6QTeet",
+    "bundle": "1hTdEj1mOiNrvvGFOzSaKbOH5BX6sHUFY",
+    "projectReference": "1B3NroHjK1YnBHgYWu6CBe5900X1xPoKfEqN78XBC9z8",
+    "bundleDownloadedAndHashVerified": true,
+    "manifestEntriesVerified": 54
+  },
+  "projectReference": {
+    "priorPrefixPreserved": true,
+    "addendumPresent": true,
+    "charsAdded": 3274
+  },
+  "physicalLenovo": "not exercised; ADB unavailable",
+  "squareProvider": "catalogue read permission / provider acceptance outstanding",
+  "pr": "https://github.com/jasperdouw-spec/puna-command-centre-staging/pull/5",
+  "documents": {
+    "report": {
+      "file": "RELEASE-REPORT.md",
+      "sha256": "2e8ee03b18457b0a0ae786618d593b22b20469c72bf23f0f2d74c4edd36c5081",
+      "driveTextMatches": true
+    },
+    "architecture": {
+      "file": "IMPLEMENTATION.md",
+      "sha256": "3ebe36e18fb04612a0c85cb8e86d3c649b84947118f838113d8e234364affc69",
+      "driveTextMatches": true
+    },
+    "tablet": {
+      "file": "TABLET-ACCEPTANCE.md",
+      "sha256": "8af9706b4722d86fc1660f555b27d6679100901288095b5107e7784e7fe50c80",
+      "driveTextMatches": true
+    },
+    "operations": {
+      "file": "OPERATIONS.md",
+      "sha256": "fe7da8c1a220ce92474c867603715904bef82bce340d93dd49cc5b6c984ae4d3",
+      "driveTextMatches": true
+    }
+  },
+  "bundle": {
+    "file": "PUNA-menu-studio-release-20261113.zip",
+    "bytes": 14711448,
+    "sha256": "c294e511de9211c53fcb7d405b1a1af5d864aefe4e51660a6f679ecad977a8c1",
+    "md5": "2c32f72eccae04e637c9507282b058f1",
+    "verifiedEntries": 54,
+    "excluded": [
+      "private SQL backup",
+      "raw authenticated snapshots",
+      "credentials"
+    ]
+  },
+  "media": {
+    "mediaId": "355dd880-87b6-4357-b27c-9d519a22b446",
+    "sourceSha256": "678a1373ef973ad3ca2835580fa8871c53a504aae511b3e55b8f90cd1eca1e06",
+    "privateMediaFiles": 13,
+    "allStoredHashesMatch": true,
+    "beforeRows": [
+      "- row \"50-50-100-1280.jpg 220000 85de79e2e8ca98f9c46028bb7cc292c173cf3caac4cb44dfa9... 1 NULL\":",
+      "- row \"50-50-100-1280.webp 189570 412a94ae206538592e8d77b5c9782d059f34b93794d39da3ab... 1 NULL\":",
+      "- row \"50-50-100-320.jpg 24789 8bd2c49006635cda0f7a0060ad68f755dc2a9322376f59c34e... 1 NULL\":",
+      "- row \"50-50-100-320.webp 26700 e58b4cf81833b2f7288fbbab35870f4c59ba5c026a644e00b3... 1 NULL\":",
+      "- row \"50-50-100-640.jpg 78927 754fa41f14b020d05e6304bb61337a64b0c33a694caf79730b... 1 NULL\":",
+      "- row \"50-50-100-640.webp 78592 301c03b1fd35eb0a056bcad1af86cf388f9d5d2c98fbccdfe8... 1 NULL\":",
+      "- row \"50-50-101-1280.jpg 218621 939e0ef60280c4884f3735077880989a9a24f31bbc6e9e0387... 1 NULL\":",
+      "- row \"50-50-101-1280.webp 181858 9be9cb8f130ae74ddb08c05a51267d840f89601f4eec4c9d3f... 1 NULL\":",
+      "- row \"50-50-101-320.jpg 24778 dd911d7b3f619b613e12607af5360eed0f538f4deb461b97ad... 1 NULL\":",
+      "- row \"50-50-101-320.webp 26962 f19347b51854c6a9b87a2cc683efe36de40bacb53783794472... 1 NULL\":",
+      "- row \"50-50-101-640.jpg 78533 aa08ef6662565190d20b9dcb9168dfd46f8bdbc69f6a3b1245... 1 NULL\":",
+      "- row \"50-50-101-640.webp 78326 891705842ec88b9fe327e40e952e121046116d5d596126239e... 1 NULL\":",
+      "- row \"original 354251 678a1373ef973ad3ca2835580fa8871c53a504aae511b3e55b... 1 NULL\":",
+      "- row \"u291146170_puna_stage.products 2332681786\":",
+      "- row \"u291146170_puna_stage.commerce_products 1498117961\":",
+      "- row \"u291146170_puna_stage.kitchen_events 2972852496\":",
+      "- row \"u291146170_puna_stage.kitchen_lots 3524193142\":",
+      "- row \"u291146170_puna_stage.kitchen_allocations 0\":",
+      "- row \"u291146170_puna_stage.kitchen_allocation_lines 0\":"
+    ],
+    "afterRows": [
+      "- row \"50-50-100-1280.jpg 220000 85de79e2e8ca98f9c46028bb7cc292c173cf3caac4cb44dfa9... 1 NULL\":",
+      "- row \"50-50-100-1280.webp 189570 412a94ae206538592e8d77b5c9782d059f34b93794d39da3ab... 1 NULL\":",
+      "- row \"50-50-100-320.jpg 24789 8bd2c49006635cda0f7a0060ad68f755dc2a9322376f59c34e... 1 NULL\":",
+      "- row \"50-50-100-320.webp 26700 e58b4cf81833b2f7288fbbab35870f4c59ba5c026a644e00b3... 1 NULL\":",
+      "- row \"50-50-100-640.jpg 78927 754fa41f14b020d05e6304bb61337a64b0c33a694caf79730b... 1 NULL\":",
+      "- row \"50-50-100-640.webp 78592 301c03b1fd35eb0a056bcad1af86cf388f9d5d2c98fbccdfe8... 1 NULL\":",
+      "- row \"50-50-101-1280.jpg 218621 939e0ef60280c4884f3735077880989a9a24f31bbc6e9e0387... 1 NULL\":",
+      "- row \"50-50-101-1280.webp 181858 9be9cb8f130ae74ddb08c05a51267d840f89601f4eec4c9d3f... 1 NULL\":",
+      "- row \"50-50-101-320.jpg 24778 dd911d7b3f619b613e12607af5360eed0f538f4deb461b97ad... 1 NULL\":",
+      "- row \"50-50-101-320.webp 26962 f19347b51854c6a9b87a2cc683efe36de40bacb53783794472... 1 NULL\":",
+      "- row \"50-50-101-640.jpg 78533 aa08ef6662565190d20b9dcb9168dfd46f8bdbc69f6a3b1245... 1 NULL\":",
+      "- row \"50-50-101-640.webp 78326 891705842ec88b9fe327e40e952e121046116d5d596126239e... 1 NULL\":",
+      "- row \"original 354251 678a1373ef973ad3ca2835580fa8871c53a504aae511b3e55b... 1 NULL\":",
+      "- row \"u291146170_puna_stage.products 2332681786\":",
+      "- row \"u291146170_puna_stage.commerce_products 1498117961\":",
+      "- row \"u291146170_puna_stage.kitchen_events 531096730\":",
+      "- row \"u291146170_puna_stage.kitchen_lots 253952427\":",
+      "- row \"u291146170_puna_stage.kitchen_allocations 0\":",
+      "- row \"u291146170_puna_stage.kitchen_allocation_lines 0\":"
+    ],
+    "mediaUnchanged": true,
+    "catalogueUnchanged": true
+  },
+  "privateBackupVerified": true
+}

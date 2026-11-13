@@ -1,0 +1,19 @@
+
+
+2026-11-13 — Owner Menu, PUNA Photo Studio and unified ordering enhancements
+
+Staging deployed and verified at https://staging.punaempanadas.ca. Owner entry: /workspace?view=menu. Application local commit 415648b88ba0e990194a89398f26991cc76ed781 and remote c6fdf3e63c19a82c696ef7975ad551b21f2afbea share tree 1d4fa4e1b86c236ef29a0806a86c137c4f2ca70e. Hostinger marked puna-menu-studio-415648b-20261113.zip Completed / Current. Draft review PR: https://github.com/jasperdouw-spec/puna-command-centre-staging/pull/5. No production release or unrelated merge.
+
+Owners can manage product drafts, pricing/content, photographs, schedules, special templates, explicit publication and history. Existing stable product IDs and the authoritative inventory/ordering ledgers are retained. Chimichurri and grouped drinks support independent ready stock and optional bag add-ons. Existing draft prices remain unverified; no invented product, special or stock was published. Green/red/amber statuses distinguish ready stock, missing count and baking estimates.
+
+Photo Studio uses deterministic orientation, restrained warmth, 4:3 crop and six optimized JPEG/WebP derivatives; private originals are retained in MariaDB. Hosted upload and crop worked; the 354,251-byte approved tray photo produced a 78,592-byte 640px WebP. All 13 image rows survived final redeployment with matching hashes. Migration 011 added five tables without changing existing catalogue or stock. Concurrent staff inventory edits during final acceptance were preserved.
+
+Final CI passed 208 disposable integration checks, 25 boundary tests, 76 domain checks, Photo Studio assertions, typecheck and standalone production/WASM build. Binary restoration verified 70 tables, 208 indexes, 80 foreign keys and 13 media files. CI: https://github.com/jasperdouw-spec/puna-command-centre-staging/actions/runs/43383907466. Approved hero/Story regression checks passed. Actual Lenovo camera/touch/sleep/Wi-Fi acceptance remains outstanding because ADB could not initialize in this session. Square ITEMS_READ and provider mapping/payment acceptance remain blocked. Checkout, live payments, automatic POS deductions and hosted synthetic fixtures remain disabled.
+
+Consolidated report: https://drive.google.com/file/d/1omzHHLdgP-trdt6Ot_Zzipuytqp8-P2N/view
+Release evidence/source archive: https://drive.google.com/file/d/1hTdEj1mOiNrvvGFOzSaKbOH5BX6sHUFY/view
+Owner guide: https://drive.google.com/file/d/1YrkvQlanmxBm2ncvZEZPRpMeMgGYXxij/view
+Architecture: https://drive.google.com/file/d/1LTXwhjrGRUSEbc-BzwHURAOYnkBYcmRO/view
+Tablet acceptance: https://drive.google.com/file/d/1Oe5NLMJVpFe1GbLY1xVQcd-xMd6QTeet/view
+
+Matching local documentation: /Volumes/PacificData/Projects/puna-foods/puna-command-centre-staging/work/live-inventory/docs/menu-studio/. Source/screenshots/receipts: test-artifacts/menu-studio/. All four Drive Markdown documents were read back and exactly matched their local text. The 54-entry release archive was locally hash-verified; private SQL and authenticated snapshots are excluded from the ordinary evidence archive. Rollback retains all media/history and redeploys the prior verified unified-menu ZIP; do not restore stale stock or drop additive tables. Earlier project checkpoints remain intact.
