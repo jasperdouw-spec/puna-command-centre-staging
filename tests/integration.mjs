@@ -1,3 +1,4 @@
+import {checkCharts} from './chart-browser.mjs';
 import {captureApprovedSection} from './approved-visual.mjs';
 import {runPosChecks} from './kitchen-square-integration.mjs';
 import {runOrderingChecks} from './ordering-integration.mjs';
@@ -328,6 +329,7 @@ try{
    if(width<600){await page.locator('.sd-period-note').evaluate(e=>e.scrollIntoView({block:'start',behavior:'instant'}));await page.waitForTimeout(150);await page.screenshot({path:'test-artifacts/screenshots/'+device+'-dashboard-metrics.png',fullPage:false,animations:'disabled'});}
    await page.getByRole('heading',{name:'What people came for',exact:true}).evaluate(e=>e.scrollIntoView({block:'start',behavior:'instant'}));await page.waitForTimeout(150);await page.screenshot({path:'test-artifacts/screenshots/'+device+'-dashboard-products.png',fullPage:false,animations:'disabled'});}
   await page.getByRole('tab',{name:'Day',exact:true}).click();await page.getByRole('tab',{name:'Day',exact:true}).focus();await page.keyboard.press('ArrowRight');assert.equal(await page.getByRole('tab',{name:'Week',exact:true}).getAttribute('aria-selected'),'true');
+  await page.getByRole('tab',{name:'Month',exact:true}).click();await page.locator('.sd-product').first().waitFor();await checkCharts(page);
   await page.setViewportSize({width:1440,height:1000});await page.goto(origin+'/workspace');
  });
  await check('order workspace starts with real empty state and opens existing Sandbox order details',async()=>{

@@ -19,6 +19,12 @@ export function kitchenIssues(lots:Lot[],allocations:Allocation[]){
  return {shortages,delayed,late};
 }
 export function freshness(state:KitchenState,now:number){return !!state.heartbeatAt&&!!state.reviewedAt&&now-Date.parse(state.heartbeatAt)<HEARTBEAT_SECONDS*1000&&now>=Date.parse(state.heartbeatAt)&&now-Date.parse(state.reviewedAt)<STOCK_REVIEW_SECONDS*1000&&now>=Date.parse(state.reviewedAt);}
+export function connectionReason(state:KitchenState,now:number){
+ if(!state.heartbeatAt||!state.reviewedAt)return 'not_connected' as const;
+ if(now-Date.parse(state.reviewedAt)>=STOCK_REVIEW_SECONDS*1000)return 'review_expired' as const;
+ if(now-Date.parse(state.heartbeatAt)>=HEARTBEAT_SECONDS*1000||now<Date.parse(state.heartbeatAt)||now<Date.parse(state.reviewedAt))return 'connection_expired' as const;
+ return 'current' as const;
+}
 export function effectiveStatus(state:KitchenState,now:number,lots:Lot[],allocations:Allocation[]){const issues=kitchenIssues(lots,allocations),fresh=freshness(state,now);return {fresh,issues,status:state.mode==='closed'?'closed':!fresh||Object.values(issues).some(a=>a.length)?'paused':state.mode};}
 export function expiresAutomatically(a:Allocation,now:number){return a.state==='unpaid'&&Date.parse(a.expiresAt)<=now;}
 

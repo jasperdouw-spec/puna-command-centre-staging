@@ -48,6 +48,14 @@ export async function runKitchenChecks({db,request,check,cookie,staffCookie}){
   await good({action:'cancel-batch',lotId:one.id,reason:'Synthetic partial batch cancellation'});s=await inspect();assert.equal(s.lots.find(l=>l.id===one.id).online_ready,2);assert.equal(s.lots.find(l=>l.id===one.id).online_baking,0);
   const publicStock=(await request('/api/kitchen/availability')).data.products.find(p=>p.id==='kitchen-spinach');assert.equal(publicStock.ready,2);assert.equal(publicStock.baking,6);
  });
+ await check('published cabinet visibility is independent of the disabled ordering flag',async()=>{
+  await db.query("UPDATE products SET available=0 WHERE id='kitchen-spinach'");
+  let p=(await request('/api/kitchen/availability')).data.products.find(p=>p.id==='kitchen-spinach');assert.equal(p.ready,2);assert.equal(p.baking,6);assert.equal(p.orderable,false);
+  assert.equal((await inspect()).publicProductIds.includes('kitchen-spinach'),false);
+  await db.query("UPDATE commerce_products SET publication='draft' WHERE product_id='kitchen-spinach'");assert.equal((await request('/api/kitchen/availability')).data.products.some(p=>p.id==='kitchen-spinach'),false);
+  await db.query("UPDATE commerce_products SET publication='staging',category='sauce' WHERE product_id='kitchen-spinach'");assert.equal((await request('/api/kitchen/availability')).data.products.some(p=>p.id==='kitchen-spinach'),false);
+  await db.query("UPDATE commerce_products SET category='empanada' WHERE product_id='kitchen-spinach'");await db.query("UPDATE products SET available=1 WHERE id='kitchen-spinach'");
+ });
  let baked;
  await check('Start Baking is server-timed and elapsed estimates do not mark food ready',async()=>{
   baked=await good({action:'start',productId:'kitchen-corn',quantity:10,online:6,minutes:25},staffCookie,staffClient);let l=(await inspect()).lots.find(x=>x.id===baked.id);
