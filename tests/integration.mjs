@@ -295,7 +295,7 @@ try{
   await editor.getByLabel('Name',{exact:true}).fill('Synthetic browser edit');await editor.getByLabel('Price (CAD)',{exact:true}).fill('8.25');await editor.getByLabel('Ingredients & filling',{exact:true}).fill('Synthetic ingredients');
   await editor.getByRole('button',{name:'Save draft',exact:true}).click();await editor.getByRole('status').filter({hasText:'Draft saved'}).waitFor();assert.equal((await product()).name,original.name);
   await page.reload();editor=await openMenuItem(page,original.name);assert.equal(await editor.getByLabel('Name',{exact:true}).inputValue(),'Synthetic browser edit');assert.equal(Number(await editor.getByLabel('Price (CAD)',{exact:true}).inputValue()),8.25);
-  await editor.getByLabel('I confirm the price, ingredients, photo and schedule are accurate',{exact:true}).check();await editor.getByRole('button',{name:'Publish to menu',exact:true}).click();await editor.getByRole('status').filter({hasText:'Published to the menu'}).waitFor();assert.equal((await product()).source_status,'confirmed');assert.equal((await product()).price_cents,825);
+  await editor.getByLabel('I have reviewed the menu description, photo and schedule',{exact:true}).check();await editor.getByRole('button',{name:'Publish to menu',exact:true}).click();await editor.getByRole('status').filter({hasText:'Published to the menu'}).waitFor();assert.equal((await product()).source_status,'confirmed');assert.equal((await product()).price_cents,825);
   await editor.getByRole('button',{name:'Close menu item',exact:true}).click();
  });
  await check('mobile editor remains usable without horizontal overflow',async()=>{
@@ -523,7 +523,7 @@ try{
   assert.ok((await request('/api/puna')).data.products.some(p=>p.id===id&&p.price===800&&!p.available));
   const group=await openMenuItem(page,name);
   await group.getByLabel('Description',{exact:true}).fill('Synthetic owner edit retained.');
-  await group.getByLabel('Ingredients & filling',{exact:true}).fill('Synthetic ingredients');await group.getByLabel('I confirm the price, ingredients, photo and schedule are accurate',{exact:true}).check();await group.getByRole('button',{name:'Publish to menu',exact:true}).click();
+  await group.getByLabel('Ingredients & filling',{exact:true}).fill('Synthetic ingredients');await group.getByLabel('I have reviewed the menu description, photo and schedule',{exact:true}).check();await group.getByRole('button',{name:'Publish to menu',exact:true}).click();
   await page.getByRole('status').filter({hasText:'Published to the menu'}).waitFor();
   await group.getByRole('button',{name:'Close menu item',exact:true}).click();
   const row={id,canonicalId:'synthetic:browser-source',sourceKey:'synthetic:browser-source',sourceReference:'https://example.test/catalogue',sourceHash:'b'.repeat(64),name,description:'Conflicting replacement',priceCents:800,kind:'fresh',category:'empanada',priceConfirmed:true};

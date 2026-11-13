@@ -21,11 +21,12 @@ export default function PunaApp({cartPage=false}:{cartPage?:boolean}){
  const [config,setConfig]=useState<Config>({mode:'disabled',applicationId:null,locationId:null}),[quote,setQuote]=useState<Quote|null>(null),[slot,setSlot]=useState(''),[busy,setBusy]=useState(false);
  const [name,setName]=useState(''),[email,setEmail]=useState(''),[hold,setHold]=useState<{id:string;expiresAt:string;totalCents:number}|null>(null),[accessKey,setAccessKey]=useState(''),[cardReady,setCardReady]=useState(false),[paymentPending,setPaymentPending]=useState(false);
  const dialog=useRef<HTMLDialogElement>(null),card=useRef<Card|null>(null),attempt=useRef<{fingerprint:string;body:any}|null>(null);
- const load=useCallback(async()=>{const r=await fetch('/api/puna',{cache:'no-store'});if(!r.ok)throw Error('The menu could not be loaded.');setData(await r.json());setLoaded(true)},[]);
+ const menuRequest=useRef(0);
+ const load=useCallback(async()=>{const request=++menuRequest.current;const r=await fetch('/api/puna',{cache:'no-store'});if(!r.ok)throw Error('The menu could not be loaded.');const next=await r.json();if(request===menuRequest.current){setData(next);setLoaded(true)}},[]);
  useEffect(()=>{load().catch(e=>setError(e.message));fetch('/api/checkout',{cache:'no-store'}).then(r=>r.json()).then(setConfig).catch(()=>{});
   try{const raw=JSON.parse(localStorage.getItem('puna-cart-v1')||'{}'),clean:Record<string,number>={};for(const [id,n]of Object.entries(raw)){if(id.length<=64&&typeof n==='number'&&Number.isInteger(n)&&n>0&&n<=100)clean[id]=n;}setCart(clean)}catch{}setHydrated(true);
  },[load]);
- useEffect(()=>{const refresh=()=>{if(document.visibilityState==='visible')void load().catch(()=>{});};const t=setInterval(refresh,15000);document.addEventListener('visibilitychange',refresh);return()=>{clearInterval(t);document.removeEventListener('visibilitychange',refresh);};},[load]);
+ useEffect(()=>{const refresh=()=>{if(document.visibilityState==='visible')void load().catch(()=>{});};const t=setInterval(refresh,5000);let channel:BroadcastChannel|undefined;try{channel=new BroadcastChannel('puna-menu-updates');channel.onmessage=refresh;}catch{}document.addEventListener('visibilitychange',refresh);window.addEventListener('pageshow',refresh);window.addEventListener('online',refresh);return()=>{clearInterval(t);channel?.close();document.removeEventListener('visibilitychange',refresh);window.removeEventListener('pageshow',refresh);window.removeEventListener('online',refresh);};},[load]);
  useEffect(()=>{if(hydrated)localStorage.setItem('puna-cart-v1',JSON.stringify(cart));},[cart,hydrated]);
  useEffect(()=>()=>{void card.current?.destroy()},[]);
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),3500);return()=>clearTimeout(timer)},[notice]);
